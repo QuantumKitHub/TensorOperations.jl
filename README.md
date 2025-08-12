@@ -1,6 +1,6 @@
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/Jutho/TensorOperations.jl/blob/master/docs/src/assets/logo-dark.svg">
-    <img alt="TensorOperations.jl logo" src="https://github.com/Jutho/TensorOperations.jl/blob/master/docs/src/assets/logo.svg" width="150">
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/QuantumKitHub/TensorOperations.jl/blob/master/docs/src/assets/logo-dark.svg">
+    <img alt="TensorOperations.jl logo" src="https://github.com/QuantumKitHub/TensorOperations.jl/blob/master/docs/src/assets/logo.svg" width="150">
 </picture>
 
 # TensorOperations.jl
@@ -27,16 +27,16 @@ Fast tensor operations using a convenient Einstein index notation.
 [downloads-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Ftotal_downloads%2FTensorOperations&query=total_requests&label=Downloads
 [downloads-url]: http://juliapkgstats.com/pkg/TensorOperations
 
-[ci-img]: https://github.com/Jutho/TensorOperations.jl/workflows/CI/badge.svg
+[ci-img]: https://github.com/QuantumKitHub/TensorOperations.jl/workflows/CI/badge.svg
 [ci-url]:
-  https://github.com/Jutho/TensorOperations.jl/actions?query=workflow%3ACI
+  https://github.com/QuantumKitHub/TensorOperations.jl/actions?query=workflow%3ACI
 
 [pkgeval-img]: https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/T/TensorOperations.svg
 [pkgeval-url]: https://JuliaCI.github.io/NanosoldierReports/pkgeval_badges/T/TensorOperations.html
 
 [codecov-img]:
-  https://codecov.io/gh/Jutho/TensorOperations.jl/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/Jutho/TensorOperations.jl
+  https://codecov.io/gh/QuantumKitHub/TensorOperations.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/QuantumKitHub/TensorOperations.jl
 
 [aqua-img]: https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg
 [aqua-url]: https://github.com/JuliaTesting/Aqua.jl
