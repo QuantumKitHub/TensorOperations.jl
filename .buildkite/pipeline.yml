@@ -17,7 +17,6 @@ steps:
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 30
 
-steps:
   - label: "Julia LTS"
     plugins:
       - JuliaCI/julia#v1:
