@@ -1,0 +1,34 @@
+env:
+  SECRET_CODECOV_TOKEN: "NsHKj2ZxqUDfErNc+zlH6erC00pk0XRZeNAaU+hyRg6oHlIuSUVL53Z0/MW6Xeq8mBsYsfdG3rmE+h0hoGXj6swpmtjCnLI0CAHUSVOTKNHQ4R6VmKuNnLkNQX7+GO6PEcnV+sCMDSt/nhci0lUl/9qo+6uT/VA+9E6XiKOsKV8nL+kb/GDNJqrG8u2JJzd9EcrFG9Vf4p7tLgsafhQq+yQeVdeYxPWKPx2x6+K2w2WrGel0RlVfyYFLEGHo4TW4+OPPoMOJBCA+kkE2I8OlqzzMUMkULhwhWujHyOrWBZ74EFY2zbwYD/iiYTlGJW8UWaOn561uJp3J7+nab4nEYA==;U2FsdGVkX1/EACeMbht8x2ar6VrhBrcGZUtM4/B4viOz590nUZNIUkWPkjpmdriAAP3t1KEj2LlRg+z/FK+CSQ=="
+
+steps:
+  - label: "Julia v1"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1"
+      - JuliaCI/julia-test#v1: ~
+      - JuliaCI/julia-coverage#v1:
+          dirs:
+            - src
+            - ext
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+    if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 30
+
+steps:
+  - label: "Julia LTS"
+    plugins:
+      - JuliaCI/julia#v1:
+          version: "1.10" # "lts" isn't valid
+      - JuliaCI/julia-test#v1: ~
+      - JuliaCI/julia-coverage#v1:
+          dirs:
+            - src
+            - ext
+    agents:
+      queue: "juliagpu"
+      cuda: "*"
+    if: build.message !~ /\[skip tests\]/
+    timeout_in_minutes: 30
