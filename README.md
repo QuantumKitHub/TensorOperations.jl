@@ -16,10 +16,10 @@ Fast tensor operations using a convenient Einstein index notation.
 | [![CI][ci-img]][ci-url] | [![PkgEval][pkgeval-img]][pkgeval-url] | [![Codecov][codecov-img]][codecov-url] | [![Aqua QA][aqua-img]][aqua-url] |
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
-[docs-stable-url]: https://jutho.github.io/TensorOperations.jl/stable
+[docs-stable-url]: https://QuantumKitHub.github.io/TensorOperations.jl/stable
 
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
-[docs-dev-url]: https://jutho.github.io/TensorOperations.jl/latest
+[docs-dev-url]: https://QuantumKitHub.github.io/TensorOperations.jl/latest
 
 [doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.3245496.svg
 [doi-url]: https://doi.org/10.5281/zenodo.3245496
