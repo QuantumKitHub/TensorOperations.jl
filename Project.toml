@@ -67,4 +67,5 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper"]
 
 [sources]
+CUDA = {url = "https://github.com/JuliaGPU/CUDA.jl", rev = "master"}
 cuTENSOR = {url = "https://github.com/JuliaGPU/CUDA.jl", subdir="lib/cutensor", rev = "ksh/cutensor_bump"}
