@@ -68,4 +68,3 @@ test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "CUDA", "
 
 [sources]
 CUDA = {url = "https://github.com/JuliaGPU/CUDA.jl", rev = "master"}
-cuTENSOR = {url = "https://github.com/JuliaGPU/CUDA.jl", subdir="lib/cutensor", rev = "ksh/cutensor_bump"}
