@@ -147,7 +147,7 @@ end
 #-------------------------------------------------------------------------------------------
 # Allocator
 #-------------------------------------------------------------------------------------------
-function CUDAAllocator()
+function TO.CUDAAllocator()
     Mout = CUDA.UnifiedMemory
     Min = CUDA.default_memory
     Mtemp = CUDA.default_memory
