@@ -167,9 +167,9 @@ function instantiate_linearcombination(
     )
     out = Expr(:block)
     if alloc ∈ (NewTensor, TemporaryTensor)
-        if scaltype === nothing
-            scaltype = instantiate_scalartype(ex)
-        end
+        scaltype = @something(
+            scaltype, instantiate_scalartype(α === One() ? ex : Expr(:call, :*, α, ex))
+        )
         push!(
             out.args,
             instantiate(dst, β, ex.args[2], α, leftind, rightind, alloc, scaltype)
