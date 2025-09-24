@@ -122,15 +122,15 @@ function instantiate_generaltensor(
         β = βsym
     end
     if alloc ∈ (NewTensor, TemporaryTensor)
-        TC = gensym("T_" * string(dst))
+        TCsym = gensym("T_" * string(dst))
         istemporary = Val(alloc === TemporaryTensor)
         TCval = @something(
             scaltype, instantiate_scalartype(α === One() ? src : Expr(:call, :*, α, src))
         )
-        push!(out.args, Expr(:(=), TC, TCval))
+        push!(out.args, Expr(:(=), TCsym, TCval))
         push!(
             out.args,
-            Expr(:(=), dst, :(tensoralloc_add($TC, $src, $p, $conj, $istemporary)))
+            Expr(:(=), dst, :(tensoralloc_add($TCsym, $src, $p, $conj, $istemporary)))
         )
     end
 
