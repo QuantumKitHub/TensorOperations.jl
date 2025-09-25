@@ -581,4 +581,15 @@ end
         @test isblascontractable(pA, p)
         @test isblascontractable(conj(pA), p)
     end
+
+    @testset "Issue 220" begin
+        A = rand(2, 2)
+        B = rand(2, 2)
+        C = rand(2, 2)
+        D = rand(2, 2)
+        c = 1im
+        @tensor E[a; c] := c * (A[a b] * B[b c] + C[a b] * D[b c])
+        @test scalartype(E) == ComplexF64
+        @test E ≈ c * (A * B + C * D)
+    end
 end
