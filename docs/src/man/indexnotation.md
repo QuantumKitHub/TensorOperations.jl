@@ -243,6 +243,23 @@ however different strategies to modify this order.
     because they share an index label which is next in the `order` list, all other indices
     with shared label among them will be contracted, irrespective of their order.
 
+!!! warning "Combining order specifications"
+
+    Note that it is currently not possible to combine the NCON style convention of specifying
+    indices with the use of parentheses. If both are used at the same time, the parentheses
+    take precedence and the NCON style will be ignored. Any remaining contraction orders
+    will be evaluated in the default left to right order. For example, in the following
+    contractions, we have `E1 = A * ((B * D) * C)`, but `E2 = A * ((B * C) * D)`. This is
+    true even when the parentheses are compatible with the NCON contraction order, as is
+    the case here.
+
+    ```julia
+    @tensor E1[-1 -2 -3; -4] := A[-1 -2 -3; 4 5] * B[4; 1] * C[5; 2] * D[1 2; -4]
+    @tensor E2[-1 -2 -3; -4] := A[-1 -2 -3; 4 5] * (B[4; 1] * C[5; 2] * D[1 2; -4])
+    ```
+
+    Additionally, combining the `order = (...)` keyword with parentheses is currently not supported.
+
 In the case of more complex tensor networks, the optimal contraction order cannot always
 easily be guessed or determined on plain sight. It is then useful to be able to optimize the
 contraction order automatically, given a model for the complexity of contracting the

@@ -122,18 +122,15 @@ function instantiate_generaltensor(
         β = βsym
     end
     if alloc ∈ (NewTensor, TemporaryTensor)
-        TC = gensym("T_" * string(dst))
+        TCsym = gensym("T_" * string(dst))
         istemporary = Val(alloc === TemporaryTensor)
-        if scaltype === nothing
-            TCval = α === One() ? instantiate_scalartype(src) :
-                instantiate_scalartype(Expr(:call, :*, α, src))
-        else
-            TCval = scaltype
-        end
-        push!(out.args, Expr(:(=), TC, TCval))
+        TCval = @something(
+            scaltype, instantiate_scalartype(α === One() ? src : Expr(:call, :*, α, src))
+        )
+        push!(out.args, Expr(:(=), TCsym, TCval))
         push!(
             out.args,
-            Expr(:(=), dst, :(tensoralloc_add($TC, $src, $p, $conj, $istemporary)))
+            Expr(:(=), dst, :(tensoralloc_add($TCsym, $src, $p, $conj, $istemporary)))
         )
     end
 
@@ -167,9 +164,9 @@ function instantiate_linearcombination(
     )
     out = Expr(:block)
     if alloc ∈ (NewTensor, TemporaryTensor)
-        if scaltype === nothing
-            scaltype = instantiate_scalartype(ex)
-        end
+        scaltype = @something(
+            scaltype, instantiate_scalartype(α === One() ? ex : Expr(:call, :*, α, ex))
+        )
         push!(
             out.args,
             instantiate(dst, β, ex.args[2], α, leftind, rightind, alloc, scaltype)
@@ -275,18 +272,15 @@ function instantiate_contraction(
     end
     if alloc ∈ (NewTensor, TemporaryTensor)
         TCsym = gensym("T_" * string(dst))
-        if scaltype === nothing
-            Atype = instantiate_scalartype(A)
-            Btype = instantiate_scalartype(B)
-            TCval = Expr(:call, :promote_contract, Atype, Btype)
-            if α !== One()
-                TCval = Expr(
-                    :call, :(Base.promote_op), :*, instantiate_scalartype(α), TCval
-                )
+        TCval = @something(
+            scaltype,
+            begin
+                TA = instantiate_scalartype(A)
+                TB = instantiate_scalartype(B)
+                TAB = :(promote_contract($TA, $TB))
+                α === One() ? TAB : :(Base.promote_op(*, $(instantiate_scalartype(α)), $TAB))
             end
-        else
-            TCval = scaltype
-        end
+        )
         istemporary = Val(alloc === TemporaryTensor)
         initC = Expr(
             :block, Expr(:(=), TCsym, TCval),
