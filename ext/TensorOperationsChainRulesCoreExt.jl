@@ -40,7 +40,7 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(::typeof(tensorscalar), C)
-    projectC = ProjectTo(C) 
+    projectC = ProjectTo(C)
     function tensorscalar_pullback(Δc)
         _Δc = unthunk(Δc)
         return NoTangent(), projectC(_Δc)
@@ -284,7 +284,7 @@ function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
         dA = @thunk let
             ip = invperm((linearize(p)..., q[1]..., q[2]...))
             Es = map(q[1], q[2]) do i1, i2
-                    one(
+                one(
                     TensorOperations.tensoralloc_add(
                         scalartype(A), A, ((i1,), (i2,)), conjA
                     )
