@@ -39,20 +39,11 @@ function ChainRulesCore.rrule(
     return output, tensoralloc_pullback
 end
 
-# TODO: possibly use the non-inplace functions, to avoid depending on Base.copy
 function ChainRulesCore.rrule(::typeof(tensorscalar), C)
     projectC = ProjectTo(C) 
     function tensorscalar_pullback(Δc)
-        # ΔC = TensorOperations.tensoralloc(typeof(C), TensorOperations.tensorstructure(C))
         _Δc = unthunk(Δc)
-        # @show _Δc
-        # _Δc_scalar =
-        #     _Δc isa Number ? Δc :
-        #     _Δc isa AbstractArray ? only(Δc) :
-        #     throw(ArgumentError("unexpected Δc: $(typeof(_Δc))"))
-        # @show projectC(_Δc_scalar)
         return NoTangent(), projectC(_Δc)
-        # return NoTangent(), fill!(ΔC, unthunk(Δc))
     end
     return tensorscalar(C), tensorscalar_pullback
 end
