@@ -18,7 +18,8 @@ trivtuple(N) = ntuple(identity, N)
 @non_differentiable TensorOperations.tensorcontract_structure(args...)
 @non_differentiable TensorOperations.tensorcontract_type(args...)
 @non_differentiable TensorOperations.tensoralloc_contract(args...)
-@non_differentiable Base.promote_op(args...)
+@non_differentiable TensorOperations.promote_contract(args...)
+@non_differentiable TensorOperations.promote_add(args...)
 
 # Cannot free intermediate tensors when using AD
 # Thus we change the forward passes: `istemp=false` and `tensorfree!` is a no-op
