@@ -40,11 +40,18 @@ function ChainRulesCore.rrule(
     return output, tensoralloc_pullback
 end
 
+# this function more or less boils down to `fill!(similar(x), y)` but does so in a single
+# call to allow higher-order derivatives
+function similar_and_fill(x, y)
+    x′ = TensorOperations.tensoralloc(typeof(x), TensorOperations.tensorstructure(x))
+    return fill!(x′, y)
+end
+function ChainRulesCore.rrule(::typeof(similar_and_fill), x, y)
+    similar_and_fill_pullback(Δx) = NoTangent(), ZeroTangent(), tensorscalar(unthunk(Δx))
+    return similar_and_fill(x, y), similar_and_fill_pullback
+end
 function ChainRulesCore.rrule(::typeof(tensorscalar), C)
-    function tensorscalar_pullback(Δc)
-        ΔC = TensorOperations.tensoralloc(typeof(C), TensorOperations.tensorstructure(C))
-        return NoTangent(), fill!(ΔC, unthunk(Δc))
-    end
+    tensorscalar_pullback(Δc) = NoTangent(), similar_and_fill(C, unthunk(Δc))
     return tensorscalar(C), tensorscalar_pullback
 end
 
