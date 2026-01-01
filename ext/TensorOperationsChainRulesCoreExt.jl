@@ -41,10 +41,9 @@ function ChainRulesCore.rrule(
 end
 
 function ChainRulesCore.rrule(::typeof(tensorscalar), C)
-    projectC = ProjectTo(C)
     function tensorscalar_pullback(Δc)
-        _Δc = unthunk(Δc)
-        return NoTangent(), projectC(_Δc)
+        ΔC = TensorOperations.tensoralloc(typeof(C), TensorOperations.tensorstructure(C))
+        return NoTangent(), fill!(ΔC, unthunk(Δc))
     end
     return tensorscalar(C), tensorscalar_pullback
 end
