@@ -18,6 +18,8 @@ trivtuple(N) = ntuple(identity, N)
 @non_differentiable TensorOperations.tensorcontract_structure(args...)
 @non_differentiable TensorOperations.tensorcontract_type(args...)
 @non_differentiable TensorOperations.tensoralloc_contract(args...)
+@non_differentiable TensorOperations.promote_contract(args...)
+@non_differentiable TensorOperations.promote_add(args...)
 
 # Cannot free intermediate tensors when using AD
 # Thus we change the forward passes: `istemp=false` and `tensorfree!` is a no-op
@@ -38,39 +40,30 @@ function ChainRulesCore.rrule(
     return output, tensoralloc_pullback
 end
 
-# TODO: possibly use the non-inplace functions, to avoid depending on Base.copy
+# this function more or less boils down to `fill!(similar(x), y)` but does so in a single
+# call to allow higher-order derivatives
+function similar_and_fill(x, y)
+    x′ = TensorOperations.tensoralloc(typeof(x), TensorOperations.tensorstructure(x))
+    return fill!(x′, y)
+end
+function ChainRulesCore.rrule(::typeof(similar_and_fill), x, y)
+    similar_and_fill_pullback(Δx) = NoTangent(), ZeroTangent(), tensorscalar(unthunk(Δx))
+    return similar_and_fill(x, y), similar_and_fill_pullback
+end
 function ChainRulesCore.rrule(::typeof(tensorscalar), C)
-    function tensorscalar_pullback(Δc)
-        ΔC = TensorOperations.tensoralloc(typeof(C), TensorOperations.tensorstructure(C))
-        return NoTangent(), fill!(ΔC, unthunk(Δc))
-    end
+    tensorscalar_pullback(Δc) = NoTangent(), similar_and_fill(C, unthunk(Δc))
     return tensorscalar(C), tensorscalar_pullback
 end
 
+# To avoid computing rrules for α and β when these aren't needed, we want to have a
+# type-stable quick bail-out
+_needs_tangent(x) = _needs_tangent(typeof(x))
+_needs_tangent(::Type{<:Number}) = true
+_needs_tangent(::Type{<:Integer}) = false
+_needs_tangent(::Type{<:Union{One, Zero}}) = false
+
 # The current `rrule` design makes sure that the implementation for custom types does
 # not need to support the backend or allocator arguments
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensoradd!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number,
-#                               backend, allocator)
-#     val, pb = _rrule_tensoradd!(C, A, pA, conjA, α, β, (backend, allocator))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent(), NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensoradd!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number,
-#                               backend)
-#     val, pb = _rrule_tensoradd!(C, A, pA, conjA, α, β, (backend,))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensoradd!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number)
-#     return _rrule_tensoradd!(C, A, pA, conjA, α, β, ())
-# end
 function ChainRulesCore.rrule(
         ::typeof(TensorOperations.tensoradd!),
         C,
@@ -90,33 +83,45 @@ function _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
 
     function pullback(ΔC′)
         ΔC = unthunk(ΔC′)
-        dC = @thunk projectC(scale(ΔC, conj(β)))
+        dC = if β === Zero()
+            ZeroTangent()
+        else
+            @thunk projectC(scale(ΔC, conj(β)))
+        end
         dA = @thunk let
             ipA = invperm(linearize(pA))
             _dA = zerovector(A, VectorInterface.promote_add(ΔC, α))
             _dA = tensoradd!(_dA, ΔC, (ipA, ()), conjA, conjA ? α : conj(α), Zero(), ba...)
-            return projectA(_dA)
+            projectA(_dA)
         end
-        dα = @thunk let
-            _dα = tensorscalar(
-                tensorcontract(
-                    A, ((), linearize(pA)), !conjA,
-                    ΔC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba...
+        dα = if _needs_tangent(α)
+            @thunk let
+                _dα = tensorscalar(
+                    tensorcontract(
+                        A, ((), linearize(pA)), !conjA,
+                        ΔC, (trivtuple(numind(pA)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectα(_dα)
+                projectα(_dα)
+            end
+        else
+            ZeroTangent()
         end
-        dβ = @thunk let
-            # TODO: consider using `inner`
-            _dβ = tensorscalar(
-                tensorcontract(
-                    C, ((), trivtuple(numind(pA))), true,
-                    ΔC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba...
+        dβ = if _needs_tangent(β)
+            @thunk let
+                # TODO: consider using `inner`
+                _dβ = tensorscalar(
+                    tensorcontract(
+                        C, ((), trivtuple(numind(pA))), true,
+                        ΔC, (trivtuple(numind(pA)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectβ(_dβ)
+                projectβ(_dβ)
+            end
+        else
+            ZeroTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC, dA, NoTangent(), NoTangent(), dα, dβ, dba...
@@ -125,35 +130,6 @@ function _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
     return C′, pullback
 end
 
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensorcontract!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               B, pB::Index2Tuple, conjB::Bool,
-#                               pAB::Index2Tuple,
-#                               α::Number, β::Number,
-#                               backend, allocator)
-#     val, pb = _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β,
-#                                      (backend, allocator))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent(), NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensorcontract!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               B, pB::Index2Tuple, conjB::Bool,
-#                               pAB::Index2Tuple,
-#                               α::Number, β::Number,
-#                               backend)
-#     val, pb = _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, (backend,))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(TensorOperations.tensorcontract!),
-#                               C,
-#                               A, pA::Index2Tuple, conjA::Bool,
-#                               B, pB::Index2Tuple, conjB::Bool,
-#                               pAB::Index2Tuple,
-#                               α::Number, β::Number)
-#     return _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ())
-# end
 function ChainRulesCore.rrule(
         ::typeof(TensorOperations.tensorcontract!),
         C,
@@ -181,7 +157,11 @@ function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
             TupleTools.getindices(ipAB, trivtuple(numout(pA))),
             TupleTools.getindices(ipAB, numout(pA) .+ trivtuple(numin(pB))),
         )
-        dC = @thunk projectC(scale(ΔC, conj(β)))
+        dC = if β === Zero()
+            ZeroTangent()
+        else
+            @thunk projectC(scale(ΔC, conj(β)))
+        end
         dA = @thunk let
             ipA = (invperm(linearize(pA)), ())
             conjΔC = conjA
@@ -194,7 +174,7 @@ function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
                 ipA,
                 conjA ? α : conj(α), Zero(), ba...
             )
-            return projectA(_dA)
+            projectA(_dA)
         end
         dB = @thunk let
             ipB = (invperm(linearize(pB)), ())
@@ -208,30 +188,38 @@ function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
                 ipB,
                 conjB ? α : conj(α), Zero(), ba...
             )
-            return projectB(_dB)
+            projectB(_dB)
         end
-        dα = @thunk let
-            C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-            # TODO: consider using `inner`
-            _dα = tensorscalar(
-                tensorcontract(
-                    C_αβ, ((), trivtuple(numind(pAB))), true,
-                    ΔC, (trivtuple(numind(pAB)), ()), false,
-                    ((), ()), One(), ba...
+        dα = if _needs_tangent(α)
+            @thunk let
+                C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
+                # TODO: consider using `inner`
+                _dα = tensorscalar(
+                    tensorcontract(
+                        C_αβ, ((), trivtuple(numind(pAB))), true,
+                        ΔC, (trivtuple(numind(pAB)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectα(_dα)
+                projectα(_dα)
+            end
+        else
+            ZeroTangent()
         end
-        dβ = @thunk let
-            # TODO: consider using `inner`
-            _dβ = tensorscalar(
-                tensorcontract(
-                    C, ((), trivtuple(numind(pAB))), true,
-                    ΔC, (trivtuple(numind(pAB)), ()), false,
-                    ((), ()), One(), ba...
+        dβ = if _needs_tangent(β)
+            @thunk let
+                # TODO: consider using `inner`
+                _dβ = tensorscalar(
+                    tensorcontract(
+                        C, ((), trivtuple(numind(pAB))), true,
+                        ΔC, (trivtuple(numind(pAB)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectβ(_dβ)
+                projectβ(_dβ)
+            end
+        else
+            ZeroTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC,
@@ -242,25 +230,6 @@ function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
     return C′, pullback
 end
 
-# function ChainRulesCore.rrule(::typeof(tensortrace!), C,
-#                               A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number,
-#                               backend, allocator)
-#     val, pb = _rrule_tensortrace!(C, A, p, q, conjA, α, β, (backend, allocator))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent(), NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(tensortrace!), C,
-#                               A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number,
-#                               backend)
-#     val, pb = _rrule_tensortrace!(C, A, p, q, conjA, α, β, (backend,))
-#     return val, ΔC -> (pb(ΔC)..., NoTangent())
-# end
-# function ChainRulesCore.rrule(::typeof(tensortrace!), C,
-#                               A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
-#                               α::Number, β::Number)
-#     return _rrule_tensortrace!(C, A, p, q, conjA, α, β, ())
-# end
 function ChainRulesCore.rrule(
         ::typeof(tensortrace!), C,
         A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
@@ -279,11 +248,15 @@ function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
 
     function pullback(ΔC′)
         ΔC = unthunk(ΔC′)
-        dC = @thunk projectC(scale(ΔC, conj(β)))
+        dC = if β === Zero()
+            ZeroTangent()
+        else
+            @thunk projectC(scale(ΔC, conj(β)))
+        end
         dA = @thunk let
             ip = invperm((linearize(p)..., q[1]..., q[2]...))
             Es = map(q[1], q[2]) do i1, i2
-                return one(
+                one(
                     TensorOperations.tensoralloc_add(
                         scalartype(A), A, ((i1,), (i2,)), conjA
                     )
@@ -297,29 +270,37 @@ function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
                 (ip, ()),
                 conjA ? α : conj(α), Zero(), ba...
             )
-            return projectA(_dA)
+            projectA(_dA)
         end
-        dα = @thunk let
-            C_αβ = tensortrace(A, p, q, false, One(), ba...)
-            _dα = tensorscalar(
-                tensorcontract(
-                    C_αβ, ((), trivtuple(numind(p))),
-                    !conjA,
-                    ΔC, (trivtuple(numind(p)), ()), false,
-                    ((), ()), One(), ba...
+        dα = if _needs_tangent(α)
+            @thunk let
+                C_αβ = tensortrace(A, p, q, false, One(), ba...)
+                _dα = tensorscalar(
+                    tensorcontract(
+                        C_αβ, ((), trivtuple(numind(p))),
+                        !conjA,
+                        ΔC, (trivtuple(numind(p)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectα(_dα)
+                projectα(_dα)
+            end
+        else
+            ZeroTangent()
         end
-        dβ = @thunk let
-            _dβ = tensorscalar(
-                tensorcontract(
-                    C, ((), trivtuple(numind(p))), true,
-                    ΔC, (trivtuple(numind(p)), ()), false,
-                    ((), ()), One(), ba...
+        dβ = if _needs_tangent(β)
+            @thunk let
+                _dβ = tensorscalar(
+                    tensorcontract(
+                        C, ((), trivtuple(numind(p))), true,
+                        ΔC, (trivtuple(numind(p)), ()), false,
+                        ((), ()), One(), ba...
+                    )
                 )
-            )
-            return projectβ(_dβ)
+                projectβ(_dβ)
+            end
+        else
+            ZeroTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC, dA, NoTangent(), NoTangent(), NoTangent(), dα, dβ, dba...
