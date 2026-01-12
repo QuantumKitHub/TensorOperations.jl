@@ -34,6 +34,7 @@ export checkcontractible, tensorcost
 include("indices.jl")
 include("backends.jl")
 include("interface.jl")
+include("utils.jl")
 
 # Index notation via macros
 #---------------------------

@@ -2,6 +2,12 @@
 # General definitions for AbstractArray instances
 # ------------------------------------------------------------------------------------------
 tensorscalar(C::AbstractArray) = ndims(C) == 0 ? sum(C) : throw(DimensionMismatch())
+# this function more or less boils down to `fill!(similar(x), y)` but does so in a single
+# call to allow higher-order derivatives
+function similar_and_fill(x, y)
+    x′ = tensoralloc(typeof(x), tensorstructure(x))
+    return fill!(x′, y)
+end
 # sum is a trick to get the scalar value of a 0-dimensional array, that also works on CuArray
 
 tensorcost(C::AbstractArray, i) = size(C, i)
