@@ -254,20 +254,4 @@ function Mooncake.rrule!!(
     return C_dC, trace_pb
 end
 
-Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensorscalar), Any}
-function Mooncake.rrule!!(::CoDual{typeof(tensorscalar)}, C_dC::CoDual)
-    C, dC = arrayify(C_dC)
-    output = tensorscalar(C)
-    function tensorscalar_pullback(doutput::Number)
-        dC .+= doutput
-        return NoRData(), NoRData()
-    end
-    function tensorscalar_pullback(doutput::Mooncake.RData{@NamedTuple{re::Float64, im::Float64}})
-        ∂output = complex(doutput.data.re, doutput.data.im)
-        dC .+= ∂output
-        return NoRData(), NoRData()
-    end
-    return Mooncake.zero_fcodual(output), tensorscalar_pullback
-end
-
 end
