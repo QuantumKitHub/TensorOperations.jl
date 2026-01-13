@@ -52,7 +52,7 @@ function Mooncake.rrule!!(
     C_cache = copy(C)
     TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
     function contract_pb(::NoRData)
-        C .= C_cache
+        scale!(C, C_cache, One())
         if Tα == Zero && Tβ == Zero
             scale!(dC, zero(TC))
             return ntuple(i -> NoRData(), 12)
@@ -142,7 +142,7 @@ function Mooncake.rrule!!(
     C_cache = copy(C)
     TensorOperations.tensoradd!(C, A, pA, conjA, α, β, ba)
     function add_pb(::NoRData)
-        C .= C_cache
+        scale!(C, C_cache, One())
         ipA = invperm(linearize(pA))
         dA = tensoradd!(dA, dC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba)
         dα = if _needs_tangent(Tα)
@@ -200,7 +200,7 @@ function Mooncake.rrule!!(
     C_cache = copy(C)
     TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, ba)
     function trace_pb(::NoRData)
-        C .= C_cache
+        scale!(C, C_cache, One())
         ip = invperm((linearize(p)..., q[1]..., q[2]...))
         Es = map(q[1], q[2]) do i1, i2
             one(
