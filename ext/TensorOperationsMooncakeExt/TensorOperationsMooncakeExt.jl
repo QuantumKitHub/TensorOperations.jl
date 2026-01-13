@@ -111,8 +111,8 @@ function Mooncake.rrule!!(
         else
             NoRData()
         end
-        dC = if Tβ == Zero
-            scale!(dC, zero(TC))
+        if Tβ == Zero
+            zero!(dC)
         else
             scale!(dC, conj(β))
         end
@@ -167,8 +167,8 @@ function Mooncake.rrule!!(
         else
             Mooncake.NoRData()
         end
-        dC .= if β === Zero()
-            zero(dC)
+        if β === Zero()
+            zero!(dC)
         else
             scale!(dC, conj(β))
         end
@@ -245,7 +245,7 @@ function Mooncake.rrule!!(
             NoRData()
         end
         if Tβ == Zero
-            scale!(dC, zero(TC))
+            zero!(dC)
         else
             scale!(dC, conj(β))
         end
