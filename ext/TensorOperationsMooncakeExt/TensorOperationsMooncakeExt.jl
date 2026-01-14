@@ -2,11 +2,16 @@ module TensorOperationsMooncakeExt
 
 using TensorOperations
 using Mooncake
+using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, ManualAllocator
 using TensorOperations: tensoralloc, tensoradd!, tensorcontract!, tensortrace!, _kron, numind, _needs_tangent, numin, numout
 using Mooncake: ReverseMode, DefaultCtx, CoDual, NoRData, arrayify, @zero_derivative, primal, tangent
 using VectorInterface, TupleTools
 
 Mooncake.tangent_type(::Type{Index2Tuple}) = Mooncake.NoTangent
+Mooncake.tangent_type(::Type{<:AbstractBackend}) = Mooncake.NoTangent
+Mooncake.tangent_type(::Type{DefaultAllocator}) = Mooncake.NoTangent
+Mooncake.tangent_type(::Type{CUDAAllocator}) = Mooncake.NoTangent
+Mooncake.tangent_type(::Type{ManualAllocator}) = Mooncake.NoTangent
 
 trivtuple(N) = ntuple(identity, N)
 
@@ -23,7 +28,7 @@ trivtuple(N) = ntuple(identity, N)
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensorfree!), Any}
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensoralloc), Any, Any, Any, Any}
 
-Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensorcontract!), AbstractArray, AbstractArray, Index2Tuple, Bool, AbstractArray, Index2Tuple, Bool, Index2Tuple, Number, Number, Any}
+Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensorcontract!), AbstractArray, AbstractArray, Index2Tuple, Bool, AbstractArray, Index2Tuple, Bool, Index2Tuple, Number, Number, AbstractBackend, Any}
 function Mooncake.rrule!!(
         ::CoDual{typeof(tensorcontract!)},
         C_dC::CoDual{<:AbstractArray{TC}},
@@ -36,7 +41,8 @@ function Mooncake.rrule!!(
         pAB_dpAB::CoDual{<:Index2Tuple},
         α_dα::CoDual{Tα},
         β_dβ::CoDual{Tβ},
-        ba_dba::CoDual
+        ba_dba::CoDual,
+        alloc_dalloc::CoDual,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TB <: Number, TC <: Number}
     C, dC = arrayify(C_dC)
     A, dA = arrayify(A_dA)
@@ -49,13 +55,14 @@ function Mooncake.rrule!!(
     α = primal(α_dα)
     β = primal(β_dβ)
     ba = primal(ba_dba)
+    allocator = primal(alloc_dalloc)
     C_cache = copy(C)
-    TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
+    TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba, allocator)
     function contract_pb(::NoRData)
         scale!(C, C_cache, One())
         if Tα == Zero && Tβ == Zero
             scale!(dC, zero(TC))
-            return ntuple(i -> NoRData(), 12)
+            return ntuple(i -> NoRData(), 13)
         end
         ipAB = invperm(linearize(pAB))
         pdC = (
@@ -80,17 +87,17 @@ function Mooncake.rrule!!(
             A, reverse(pA), conjA′,
             dC, pdC, conjΔC,
             ipB,
-            conjB ? α : conj(α), One(), ba
+            conjB ? α : conj(α), One(), ba, allocator
         )
         dα = if _needs_tangent(Tα)
-            C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba)
+            C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba, allocator)
             # TODO: consider using `inner`
             Mooncake._rdata(
                 tensorscalar(
                     tensorcontract(
                         C_αβ, ((), trivtuple(numind(pAB))), true,
                         dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba
+                        ((), ()), One(), ba, allocator
                     )
                 )
             )
@@ -104,7 +111,7 @@ function Mooncake.rrule!!(
                     tensorcontract(
                         C, ((), trivtuple(numind(pAB))), true,
                         dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba
+                        ((), ()), One(), ba, allocator
                     )
                 )
             )
@@ -116,12 +123,12 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData()
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData(), NoRData()
     end
     return C_dC, contract_pb
 end
 
-Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensoradd!), AbstractArray, AbstractArray, Index2Tuple, Bool, Number, Number, Any}
+Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensoradd!), AbstractArray, AbstractArray, Index2Tuple, Bool, Number, Number, AbstractBackend, Any}
 function Mooncake.rrule!!(
         ::CoDual{typeof(tensoradd!)},
         C_dC::CoDual{<:AbstractArray{TC}},
@@ -130,7 +137,8 @@ function Mooncake.rrule!!(
         conjA_dconjA::CoDual{Bool},
         α_dα::CoDual{Tα},
         β_dβ::CoDual{Tβ},
-        ba_dba::CoDual
+        ba_dba::CoDual,
+        alloc_dalloc::CoDual,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     C, dC = arrayify(C_dC)
     A, dA = arrayify(A_dA)
@@ -140,17 +148,18 @@ function Mooncake.rrule!!(
     β = primal(β_dβ)
     ba = primal(ba_dba)
     C_cache = copy(C)
-    TensorOperations.tensoradd!(C, A, pA, conjA, α, β, ba)
+    allocator = primal(alloc_dalloc)
+    TensorOperations.tensoradd!(C, A, pA, conjA, α, β, ba, allocator)
     function add_pb(::NoRData)
         scale!(C, C_cache, One())
         ipA = invperm(linearize(pA))
-        dA = tensoradd!(dA, dC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba)
+        dA = tensoradd!(dA, dC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba, allocator)
         dα = if _needs_tangent(Tα)
             tensorscalar(
                 tensorcontract(
                     A, ((), linearize(pA)), !conjA,
                     dC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba
+                    ((), ()), One(), ba, allocator
                 )
             )
         else
@@ -161,7 +170,7 @@ function Mooncake.rrule!!(
                 tensorcontract(
                     C, ((), trivtuple(numind(pA))), true,
                     dC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba
+                    ((), ()), One(), ba, allocator
                 )
             )
         else
@@ -172,12 +181,12 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData()
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData(), NoRData()
     end
     return C_dC, add_pb
 end
 
-Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensortrace!), AbstractArray, AbstractArray, Index2Tuple, Index2Tuple, Bool, Number, Number, Any}
+Mooncake.@is_primitive DefaultCtx ReverseMode Tuple{typeof(tensortrace!), AbstractArray, AbstractArray, Index2Tuple, Index2Tuple, Bool, Number, Number, AbstractBackend, Any}
 function Mooncake.rrule!!(
         ::CoDual{typeof(tensortrace!)},
         C_dC::CoDual{<:AbstractArray{TC}},
@@ -187,7 +196,8 @@ function Mooncake.rrule!!(
         conjA_dconjA::CoDual{Bool},
         α_dα::CoDual{Tα},
         β_dβ::CoDual{Tβ},
-        ba_dba::CoDual
+        ba_dba::CoDual,
+        alloc_dalloc::CoDual
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     C, dC = arrayify(C_dC)
     A, dA = arrayify(A_dA)
@@ -198,7 +208,8 @@ function Mooncake.rrule!!(
     β = primal(β_dβ)
     ba = primal(ba_dba)
     C_cache = copy(C)
-    TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, ba)
+    allocator = primal(alloc_dalloc)
+    TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, ba, allocator)
     function trace_pb(::NoRData)
         scale!(C, C_cache, One())
         ip = invperm((linearize(p)..., q[1]..., q[2]...))
@@ -214,9 +225,9 @@ function Mooncake.rrule!!(
             dA, dC, (trivtuple(numind(p)), ()), conjA,
             E, ((), trivtuple(numind(q))), conjA,
             (ip, ()),
-            conjA ? α : conj(α), One(), ba
+            conjA ? α : conj(α), One(), ba, allocator
         )
-        C_αβ = tensortrace(A, p, q, false, One(), ba)
+        C_αβ = tensortrace(A, p, q, false, One(), ba, allocator)
         dα = if _needs_tangent(Tα)
             Mooncake._rdata(
                 tensorscalar(
@@ -224,7 +235,7 @@ function Mooncake.rrule!!(
                         C_αβ, ((), trivtuple(numind(p))),
                         !conjA,
                         dC, (trivtuple(numind(p)), ()), false,
-                        ((), ()), One(), ba
+                        ((), ()), One(), ba, allocator
                     )
                 )
             )
@@ -237,7 +248,7 @@ function Mooncake.rrule!!(
                     tensorcontract(
                         C, ((), trivtuple(numind(p))), true,
                         dC, (trivtuple(numind(p)), ()), false,
-                        ((), ()), One(), ba
+                        ((), ()), One(), ba, allocator
                     )
                 )
             )
@@ -249,7 +260,7 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData()
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, NoRData(), NoRData()
     end
     return C_dC, trace_pb
 end
