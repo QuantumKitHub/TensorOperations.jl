@@ -21,8 +21,8 @@ Fast tensor operations using a convenient Einstein index notation.
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-blue.svg
 [docs-dev-url]: https://QuantumKitHub.github.io/TensorOperations.jl/latest
 
-[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.3245496.svg
-[doi-url]: https://doi.org/10.5281/zenodo.3245496
+[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.18157382.svg
+[doi-url]: https://doi.org/10.5281/zenodo.18157382
 
 [downloads-img]: https://img.shields.io/badge/dynamic/json?url=http%3A%2F%2Fjuliapkgstats.com%2Fapi%2Fv1%2Ftotal_downloads%2FTensorOperations&query=total_requests&label=Downloads
 [downloads-url]: http://juliapkgstats.com/pkg/TensorOperations
