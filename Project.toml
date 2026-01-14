@@ -24,12 +24,14 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 
 [extensions]
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
 TensorOperationsMooncakeExt = "Mooncake"
+TensorOperationsEnzymeExt = ["Enzyme", "ChainRulesCore"]
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
@@ -38,6 +40,8 @@ CUDA = "5"
 ChainRulesCore = "1"
 ChainRulesTestUtils = "1"
 DynamicPolynomials = "0.5, 0.6"
+Enzyme = "0.13.115"
+EnzymeTestUtils = "0.2"
 LRUCache = "1"
 LinearAlgebra = "1.6"
 Logging = "1.6"
@@ -59,8 +63,11 @@ julia = "1.10"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ChainRulesTestUtils = "cdddcdb0-9152-4a09-a978-84456f9df70a"
 DynamicPolynomials = "7c1d4256-1411-5781-91ec-d7bc3513ac07"
+Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+EnzymeTestUtils = "12d8515a-0907-448a-8884-5fe00fdf1c5a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -68,4 +75,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils"]
