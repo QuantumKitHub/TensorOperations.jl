@@ -121,7 +121,7 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_->NoRData(), ba)...
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, contract_pb
 end
@@ -177,7 +177,7 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_->NoRData(), ba)...
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, add_pb
 end
@@ -254,7 +254,7 @@ function Mooncake.rrule!!(
         else
             scale!(dC, conj(β))
         end
-        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_->NoRData(), ba)...
+        return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, trace_pb
 end
