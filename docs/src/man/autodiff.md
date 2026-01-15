@@ -28,5 +28,5 @@ restored will **silently** return incorrect results.
     While some rudimentary tests are run, the AD support is currently not incredibly
     well-tested. Because of the way it is implemented, the use of AD will tacitly replace
     mutating operations with a non-mutating variant. This might lead to unwanted bugs that
-    are hard to track down. Additionally, for mixed scalar types their also might be
+    are hard to track down. Additionally, for mixed scalar types there also might be
     unexpected or unwanted behaviour.
