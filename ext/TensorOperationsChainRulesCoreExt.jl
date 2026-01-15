@@ -1,8 +1,8 @@
 module TensorOperationsChainRulesCoreExt
 
 using TensorOperations
-using TensorOperations: numind, numin, numout, promote_contract
-using TensorOperations: DefaultBackend, DefaultAllocator
+using TensorOperations: numind, numin, numout, promote_contract, _needs_tangent
+using TensorOperations: DefaultBackend, DefaultAllocator, _kron
 using ChainRulesCore
 using TupleTools
 using VectorInterface
@@ -54,13 +54,6 @@ function ChainRulesCore.rrule(::typeof(tensorscalar), C)
     tensorscalar_pullback(Δc) = NoTangent(), similar_and_fill(C, unthunk(Δc))
     return tensorscalar(C), tensorscalar_pullback
 end
-
-# To avoid computing rrules for α and β when these aren't needed, we want to have a
-# type-stable quick bail-out
-_needs_tangent(x) = _needs_tangent(typeof(x))
-_needs_tangent(::Type{<:Number}) = true
-_needs_tangent(::Type{<:Integer}) = false
-_needs_tangent(::Type{<:Union{One, Zero}}) = false
 
 # The current `rrule` design makes sure that the implementation for custom types does
 # not need to support the backend or allocator arguments
@@ -307,15 +300,6 @@ function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
     end
 
     return C′, pullback
-end
-
-_kron(Es::NTuple{1}, ba) = Es[1]
-function _kron(Es::NTuple{N, Any}, ba) where {N}
-    E1 = Es[1]
-    E2 = _kron(Base.tail(Es), ba)
-    p2 = ((), trivtuple(2 * N - 2))
-    p = ((1, (2 .+ trivtuple(N - 1))...), (2, ((N + 1) .+ trivtuple(N - 1))...))
-    return tensorproduct(p, E1, ((1, 2), ()), false, E2, p2, false, One(), ba...)
 end
 
 # NCON functions

@@ -1,6 +1,6 @@
 name = "TensorOperations"
 uuid = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
-version = "5.4"
+version = "5.5.0"
 authors = ["Lukas Devos <lukas.devos@ugent.be>", "Maarten Van Damme <maartenvd1994@gmail.com>", "Jutho Haegeman <jutho.haegeman@ugent.be>"]
 
 [deps]
@@ -23,11 +23,13 @@ Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 
 [extensions]
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
+TensorOperationsMooncakeExt = "Mooncake"
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
@@ -39,6 +41,7 @@ DynamicPolynomials = "0.5, 0.6"
 LRUCache = "1"
 LinearAlgebra = "1.6"
 Logging = "1.6"
+Mooncake = "0.4.195"
 PackageExtensionCompat = "1"
 PrecompileTools = "1.1"
 Preferences = "1.4"
@@ -59,9 +62,10 @@ CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesTestUtils = "cdddcdb0-9152-4a09-a978-84456f9df70a"
 DynamicPolynomials = "7c1d4256-1411-5781-91ec-d7bc3513ac07"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake"]

@@ -8,6 +8,9 @@ using TensorOperations: IndexError
 using TensorOperations: BaseCopy, BaseView, StridedNative, StridedBLAS
 using TensorOperations: DefaultAllocator, ManualAllocator
 
+precision(::Type{<:Union{Float32, Complex{Float32}}}) = 1.0e-2
+precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
+
 # don't run all tests on GPU, only the GPU
 # specific ones
 is_buildkite = get(ENV, "BUILDKITE", "false") == "true"
@@ -30,6 +33,9 @@ if !is_buildkite
     end
     @testset "ad" verbose = false begin
         include("ad.jl")
+    end
+    @testset "mooncake" verbose = false begin
+        include("mooncake.jl")
     end
 end
 
