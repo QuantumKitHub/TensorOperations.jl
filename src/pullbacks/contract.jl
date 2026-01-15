@@ -24,7 +24,7 @@ function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::
         ipB,
         conjB ? α : conj(α), One(), ba...
     )
-    Δα = if _needs_tangent(Tα)
+    Δα = if _needs_tangent(α)
         C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
         # TODO: consider using `inner`
         tensorscalar(
@@ -37,7 +37,7 @@ function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::
     else
         nothing
     end
-    Δβ = if _needs_tangent(Tβ)
+    Δβ = if _needs_tangent(β)
         # TODO: consider using `inner`
         tensorscalar(
             tensorcontract(
@@ -54,10 +54,5 @@ function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::
     else
         scale!(ΔC, conj(β))
     end
-    return ΔC, ΔA, ΔB, Δα, Δβ 
-end
-
-function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α::Zero, β::Zero, args...)
-    scale!(ΔC, zero(eltype(C)))
-    return ntuple(i -> nothing, 5)
+    return Δα, Δβ
 end
