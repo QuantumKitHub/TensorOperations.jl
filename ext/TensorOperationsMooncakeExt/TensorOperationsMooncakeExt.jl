@@ -1,7 +1,10 @@
 module TensorOperationsMooncakeExt
 
 using TensorOperations
-using Mooncake
+# Mooncake imports ChainRulesCore as CRC to avoid name conflicts
+# here we import it ourselves to ensure the rules from the ChainRulesCore
+# extension are in fact loaded
+using Mooncake, Mooncake.CRC
 using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, ManualAllocator
 using TensorOperations: tensoralloc, tensoradd!, tensorcontract!, tensortrace!, _kron, numind, _needs_tangent, numin, numout
 using Mooncake: ReverseMode, DefaultCtx, CoDual, NoRData, arrayify, @zero_derivative, primal, tangent
