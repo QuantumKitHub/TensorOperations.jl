@@ -89,70 +89,13 @@ function EnzymeRules.reverse(
     Aval = something(cache_A, A_dA.val)
     Bval = something(cache_B, B_dB.val)
     Cval = cache_C
-    #=if Tα == Zero && Tβ == Zero
-        scale!(C_dC.dval, zero(TC))
-        return ntuple(i -> nothing, 10 + length(ba_dba))
-    end=#
-    ipAB = invperm(linearize(pAB_dpAB.val))
-    pdC = (
-        TupleTools.getindices(ipAB, trivtuple(numout(pA_dpA.val))),
-        TupleTools.getindices(ipAB, numout(pA_dpA.val) .+ trivtuple(numin(pB_dpB.val))),
-    )
-    ipA = (invperm(linearize(pA_dpA.val)), ())
-    ipB = (invperm(linearize(pB_dpB.val)), ())
-    conjA = conjA_dconjA.val
-    conjB = conjB_dconjB.val
-    conjΔC = conjA
-    conjB′ = conjA ? conjB : !conjB
+    dC = C_dC.dval
+    dA = A_dA.dval
+    dB = B_dB.dval
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
-    tensorcontract!(
-        A_dA.dval,
-        C_dC.dval, pdC, conjΔC,
-        Bval, reverse(pB_dpB.val), conjB′,
-        ipA,
-        conjA ? α : conj(α), One(), ba...
-    )
-    conjΔC = conjB
-    conjA′ = conjB ? conjA : !conjA
-    tensorcontract!(
-        B_dB.dval,
-        Aval, reverse(pA_dpA.val), conjA′,
-        C_dC.dval, pdC, conjΔC,
-        ipB,
-        conjB ? α : conj(α), One(), ba...
-    )
-    dα = if !isa(α_dα, Const) && _needs_tangent(Tα)
-        C_αβ = tensorcontract(Aval, pA_dpA.val, conjA, Bval, pB_dpB.val, conjB, pAB_dpAB.val, One(), ba...)
-        # TODO: consider using `inner`
-        tensorscalar(
-            tensorcontract(
-                C_αβ, ((), trivtuple(numind(pAB_dpAB.val))), true,
-                C_dC.dval, (trivtuple(numind(pAB_dpAB.val)), ()), false,
-                ((), ()), One(), ba...
-            )
-        )
-    else
-        nothing
-    end
-    dβ = if !isa(β_dβ, Const) && _needs_tangent(Tβ)
-        # TODO: consider using `inner`
-        tensorscalar(
-            tensorcontract(
-                Cval, ((), trivtuple(numind(pAB_dpAB.val))), true,
-                C_dC.dval, (trivtuple(numind(pAB_dpAB.val)), ()), false,
-                ((), ()), One(), ba...
-            )
-        )
-    else
-        nothing
-    end
-    if β === Zero()
-        scale!(C_dC.dval, β)
-    else
-        scale!(C_dC.dval, conj(β))
-    end
+    ΔC, ΔA, ΔB, dα, dβ = tensorcontract_pb!(dC, Cval, dA, Aval, dB, Bval, α, β, pA_dpA.val, pB_dpB.val, pAB_dpAB.val, conjA_dconjA.val, conjB_dconjB.val, ba...)
     return nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, dα, dβ, map(ba_ -> nothing, ba)...
 end
 

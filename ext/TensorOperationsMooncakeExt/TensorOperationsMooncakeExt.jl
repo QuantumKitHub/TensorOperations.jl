@@ -61,69 +61,9 @@ function Mooncake.rrule!!(
     TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
     function contract_pb(::NoRData)
         scale!(C, C_cache, One())
-        if Tα == Zero && Tβ == Zero
-            scale!(dC, zero(TC))
-            return ntuple(i -> NoRData(), 11 + length(ba))
-        end
-        ipAB = invperm(linearize(pAB))
-        pdC = (
-            TupleTools.getindices(ipAB, trivtuple(numout(pA))),
-            TupleTools.getindices(ipAB, numout(pA) .+ trivtuple(numin(pB))),
-        )
-        ipA = (invperm(linearize(pA)), ())
-        ipB = (invperm(linearize(pB)), ())
-        conjΔC = conjA
-        conjB′ = conjA ? conjB : !conjB
-        dA = tensorcontract!(
-            dA,
-            dC, pdC, conjΔC,
-            B, reverse(pB), conjB′,
-            ipA,
-            conjA ? α : conj(α), One(), ba...
-        )
-        conjΔC = conjB
-        conjA′ = conjB ? conjA : !conjA
-        dB = tensorcontract!(
-            dB,
-            A, reverse(pA), conjA′,
-            dC, pdC, conjΔC,
-            ipB,
-            conjB ? α : conj(α), One(), ba...
-        )
-        dα = if _needs_tangent(Tα)
-            C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-            # TODO: consider using `inner`
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C_αβ, ((), trivtuple(numind(pAB))), true,
-                        dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        dβ = if _needs_tangent(Tβ)
-            # TODO: consider using `inner`
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C, ((), trivtuple(numind(pAB))), true,
-                        dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        if β === Zero()
-            scale!(dC, β)
-        else
-            scale!(dC, conj(β))
-        end
+        dC, dA, dB, Δα, Δβ = tensorcontract_pb!(dC, C, dA, A, dB, B, α, β, pA, pB, pAB, conjA, conjB, ba...)
+        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
+        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, contract_pb
