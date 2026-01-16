@@ -10,7 +10,7 @@ using Enzyme.EnzymeCore: EnzymeRules
 
 @inline EnzymeRules.inactive_type(v::Type{<:AbstractBackend}) = true
 @inline EnzymeRules.inactive_type(v::Type{DefaultAllocator}) = true
-@inline EnzymeRules.inactive_type(v::Type{CUDAAllocator}) = true
+@inline EnzymeRules.inactive_type(v::Type{<:CUDAAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{ManualAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{Index2Tuple}) = true
 
