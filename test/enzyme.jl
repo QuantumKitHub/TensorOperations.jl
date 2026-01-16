@@ -6,7 +6,8 @@ using Enzyme, EnzymeTestUtils
         (Float64, Float64),
         (Float32, Float64),
         (ComplexF64, ComplexF64),
-        #(Float64, ComplexF64),
+        (Float64, ComplexF64),
+        (ComplexF64, Float64),
     )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))
@@ -35,7 +36,7 @@ end
         (Float64, Float64),
         (Float32, Float64),
         (ComplexF64, ComplexF64),
-        #(Float64, ComplexF64),
+        (Float64, ComplexF64),
     )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))
@@ -60,7 +61,7 @@ end
         (Float64, Float64),
         (Float32, Float64),
         (ComplexF64, ComplexF64),
-        #(Float64, ComplexF64),
+        (Float64, ComplexF64),
     )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))

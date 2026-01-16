@@ -1,4 +1,4 @@
-function tensortrace_pb!(ΔC, C, ΔA, A, α, β, p, q, conjA, ba...)
+function tensortrace_pullback!(ΔC, ΔA, C, A, α, β, p, q, conjA, ba...)
     ip = invperm((linearize(p)..., q[1]..., q[2]...))
     Es = map(q[1], q[2]) do i1, i2
         one(
@@ -8,12 +8,16 @@ function tensortrace_pb!(ΔC, C, ΔA, A, α, β, p, q, conjA, ba...)
         )
     end
     E = _kron(Es, ba)
+    ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
     tensorproduct!(
-        ΔA, ΔC, (trivtuple(numind(p)), ()), conjA,
+        ΔAc, ΔC, (trivtuple(numind(p)), ()), conjA,
         E, ((), trivtuple(numind(q))), conjA,
         (ip, ()),
         conjA ? α : conj(α), One(), ba...
     )
+    if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
+        ΔA .+= real.(ΔAc)
+    end
     C_αβ = tensortrace(A, p, q, false, One(), ba...)
     Δα = if _needs_tangent(α)
         tensorscalar(
@@ -43,5 +47,5 @@ function tensortrace_pb!(ΔC, C, ΔA, A, α, β, p, q, conjA, ba...)
     else
         scale!(ΔC, conj(β))
     end
-    return Δα, Δβ
+    return ΔC, ΔA, Δα, Δβ
 end

@@ -1,4 +1,4 @@
-function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::Bool, conjB::Bool, ba...)
+function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, B, α, β, pA, pB, pAB, conjA::Bool, conjB::Bool, ba...)
     ipAB = invperm(linearize(pAB))
     pdC = (
         TupleTools.getindices(ipAB, trivtuple(numout(pA))),
@@ -8,22 +8,30 @@ function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::
     ipB = (invperm(linearize(pB)), ())
     conjΔC = conjA
     conjB′ = conjA ? conjB : !conjB
+    ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
     tensorcontract!(
-        ΔA,
+        ΔAc,
         ΔC, pdC, conjΔC,
         B, reverse(pB), conjB′,
         ipA,
         conjA ? α : conj(α), One(), ba...
     )
+    if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
+        ΔA .+= real.(ΔAc)
+    end
     conjΔC = conjB
     conjA′ = conjB ? conjA : !conjA
+    ΔBc = eltype(ΔC) <: Complex && eltype(ΔB) <: Real ? zerovector(B, VectorInterface.promote_add(ΔC, α)) : ΔB
     tensorcontract!(
-        ΔB,
+        ΔBc,
         A, reverse(pA), conjA′,
         ΔC, pdC, conjΔC,
         ipB,
         conjB ? α : conj(α), One(), ba...
     )
+    if eltype(ΔC) <: Complex && eltype(ΔB) <: Real
+        ΔB .+= real.(ΔBc)
+    end
     Δα = if _needs_tangent(α)
         C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
         # TODO: consider using `inner`
@@ -54,5 +62,5 @@ function tensorcontract_pb!(ΔC, C, ΔA, A, ΔB, B, α, β, pA, pB, pAB, conjA::
     else
         scale!(ΔC, conj(β))
     end
-    return Δα, Δβ
+    return ΔC, ΔA, ΔB, Δα, Δβ
 end

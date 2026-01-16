@@ -76,7 +76,7 @@ function EnzymeRules.reverse(
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
-    dα, dβ = TensorOperations.tensorcontract_pb!(dC, Cval, dA, Aval, dB, Bval, α, β, pA_dpA.val, pB_dpB.val, pAB_dpAB.val, conjA_dconjA.val, conjB_dconjB.val, ba...)
+    dC, dA, dB, dα, dβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, Cval, Aval, Bval, α, β, pA_dpA.val, pB_dpB.val, pAB_dpAB.val, conjA_dconjA.val, conjB_dconjB.val, ba...)
     return nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, dα, dβ, map(ba_ -> nothing, ba)...
 end
 
@@ -133,7 +133,9 @@ function EnzymeRules.reverse(
     α = α_dα.val
     β = β_dβ.val
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
-    dα, dβ = TensorOperations.tensoradd_pb!(C_dC.dval, Cval, A_dA.dval, Aval, α, β, pA, conjA, ba...)
+    dC = C_dC.dval
+    dA = A_dA.dval
+    dC, dA, dα, dβ = TensorOperations.tensoradd_pullback!(dC, dA, Cval, Aval, α, β, pA, conjA, ba...)
     return nothing, nothing, nothing, nothing, dα, dβ, map(ba_ -> nothing, ba)...
 end
 
@@ -193,7 +195,9 @@ function EnzymeRules.reverse(
     α = α_dα.val
     β = β_dβ.val
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
-    dα, dβ = TensorOperations.tensortrace_pb!(C_dC.dval, Cval, A_dA.dval, Aval, α, β, p, q, conjA, ba...)
+    dC = C_dC.dval
+    dA = A_dA.dval
+    dC, dA, dα, dβ = TensorOperations.tensortrace_pullback!(dC, dA, Cval, Aval, α, β, p, q, conjA, ba...)
     return nothing, nothing, nothing, nothing, nothing, dα, dβ, map(ba_ -> nothing, ba)...
 end
 

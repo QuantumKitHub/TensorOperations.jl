@@ -1,6 +1,10 @@
-function tensoradd_pb!(ΔC, C, ΔA, A, α, β, pA, conjA::Bool, ba...)
+function tensoradd_pullback!(ΔC, ΔA, C, A, α, β, pA, conjA::Bool, ba...)
     ipA = invperm(linearize(pA))
-    tensoradd!(ΔA, ΔC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba...)
+    ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
+    tensoradd!(ΔAc, ΔC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba...)
+    if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
+        ΔA .+= real.(ΔAc)
+    end
     Δα = if _needs_tangent(α)
         tensorscalar(
             tensorcontract(
@@ -28,5 +32,5 @@ function tensoradd_pb!(ΔC, C, ΔA, A, α, β, pA, conjA::Bool, ba...)
     else
         scale!(ΔC, conj(β))
     end
-    return Δα, Δβ
+    return ΔC, ΔA, Δα, Δβ
 end
