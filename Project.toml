@@ -31,7 +31,7 @@ TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
 TensorOperationsMooncakeExt = "Mooncake"
-TensorOperationsEnzymeExt = "Enzyme"
+TensorOperationsEnzymeExt = ["Enzyme", "ChainRulesCore"]
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"

@@ -4,9 +4,12 @@ using TensorOperations
 using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, ManualAllocator
 using VectorInterface
 using TupleTools
-using Enzyme
+using Enzyme, ChainRulesCore
 using Enzyme.EnzymeCore
 using Enzyme.EnzymeCore: EnzymeRules
+
+Enzyme.@import_rrule typeof(TensorOperations.tensorfree!) Any
+Enzyme.@import_rrule typeof(TensorOperations.tensoralloc) Any
 
 @inline EnzymeRules.inactive_type(v::Type{<:AbstractBackend}) = true
 @inline EnzymeRules.inactive_type(v::Type{DefaultAllocator}) = true
@@ -33,7 +36,7 @@ function EnzymeRules.augmented_primal(
     # form caches if needed
     cache_A = !isa(A_dA, Const) && EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
     cache_B = !isa(B_dB, Const) && EnzymeRules.overwritten(config)[6] ? copy(B_dB.val) : nothing
-    cache_C = copy(C_dC.val)
+    cache_C = copy(C_dC.val) # do we need to do this, if we don't need the primal?
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     primal = if EnzymeRules.needs_primal(config)
         TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA_dpA.val, conjA_dconjA.val, B_dB.val, pB_dpB.val, conjB_dconjB.val, pAB_dpAB.val, α_dα.val, β_dβ.val, ba...)
@@ -41,11 +44,7 @@ function EnzymeRules.augmented_primal(
     else
         nothing
     end
-    shadow = if EnzymeRules.needs_shadow(config)
-        C_dC.dval
-    else
-        nothing
-    end
+    shadow = EnzymeRules.needs_shadow(config) ? C_dC.dval : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, (cache_A, cache_B, cache_C))
 end
 
@@ -101,14 +100,11 @@ function EnzymeRules.augmented_primal(
     conjA = conjA_dconjA.val
     primal = if EnzymeRules.needs_primal(config)
         TensorOperations.tensoradd!(C_dC.val, A_dA.val, pA_dpA.val, conjA, α, β, ba...)
+        C_dC.val
     else
         nothing
     end
-    shadow = if EnzymeRules.needs_shadow(config)
-        C_dC.dval
-    else
-        nothing
-    end
+    shadow = EnzymeRules.needs_shadow(config) ? C_dC.dval : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, (cache_A, cache_C))
 end
 
@@ -161,14 +157,11 @@ function EnzymeRules.augmented_primal(
     conjA = conjA_dconjA.val
     primal = if EnzymeRules.needs_primal(config)
         TensorOperations.tensortrace!(C_dC.val, A_dA.val, p_dp.val, q_dq.val, conjA, α, β, ba...)
+        C_dC.val
     else
         nothing
     end
-    shadow = if EnzymeRules.needs_shadow(config)
-        C_dC.dval
-    else
-        nothing
-    end
+    shadow = EnzymeRules.needs_shadow(config) ? C_dC.dval : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, (cache_A, cache_C))
 end
 
