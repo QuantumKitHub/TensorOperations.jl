@@ -80,7 +80,7 @@ function Mooncake.rrule!!(
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     C, dC = arrayify(C_dC)
     A, dA = arrayify(A_dA)
-    pA    = primal(pA_dpA)
+    pA = primal(pA_dpA)
     conjA = primal(conjA_dconjA)
     α = primal(α_dα)
     β = primal(β_dβ)
