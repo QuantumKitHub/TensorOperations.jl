@@ -1,14 +1,31 @@
 function tensoradd_pullback!(ΔC, ΔA, C, A, pA::Index2Tuple, conjA::Bool, α, β, ba...)
-    ipA = invperm(linearize(pA))
-    ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
-    tensoradd!(ΔAc, ΔC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba...)
+    dA = tensoradd_pullback_dA!(ΔA, ΔC, C, A, pA, conjA, α, ba...)
+    dα = tensoradd_pullback_dα(ΔC, C, A, pA, conjA, α, ba...)
+    dβ = pullback_dβ(ΔC, C, β)
+    dC = pullback_dC!(ΔC, β)
+    return dC, dA, dα, dβ
+end
+
+function tensoradd_pullback_dA(ΔC, C, A, pA::Index2Tuple, conjA::Bool, α, ba...)
+    ipA = inversepermutation(pA, A)
+    return tensorcopy(ΔC, ipA, conjA, conjA ? α : conj(α), ba...)
+end
+function tensoradd_pullback_dA!(ΔA, ΔC, C, A, pA::Index2Tuple, conjA::Bool, α, ba...)
     if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
+        ΔAc = tensoradd_pullback_dA(ΔC, C, A, pA, conjA, α, ba...)
         ΔA .+= real.(ΔAc)
+    else
+        ipA = inversepermutation(pA, ΔA)
+        tensoradd!(ΔA, ΔC, ipA, conjA, conjA ? α : conj(α), One(), ba...)
     end
-    Δα = if _needs_tangent(α)
+    return ΔA
+end
+
+function tensoradd_pullback_dα(ΔC, C, A, pA::Index2Tuple, conjA::Bool, α, ba...)
+    return if _needs_tangent(α)
         tensorscalar(
             tensorcontract(
-                A, ((), linearize(pA)), !conjA,
+                A, repartition(pA, 0), !conjA,
                 ΔC, trivialpermutation(numind(pA), 0), false,
                 ((), ()), One(), ba...
             )
@@ -16,17 +33,4 @@ function tensoradd_pullback!(ΔC, ΔA, C, A, pA::Index2Tuple, conjA::Bool, α, �
     else
         nothing
     end
-    Δβ = if _needs_tangent(β)
-        tensorscalar(
-            tensorcontract(
-                C, trivialpermutation(0, numind(pA)), true,
-                ΔC, trivialpermutation(numind(pA), 0), false,
-                ((), ()), One(), ba...
-            )
-        )
-    else
-        nothing
-    end
-    scale!(ΔC, conj(β))
-    return ΔC, ΔA, Δα, Δβ
 end

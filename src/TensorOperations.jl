@@ -38,6 +38,7 @@ include("utils.jl")
 
 # Generic pullbacks for AD
 #---------------------------
+include("pullbacks/common.jl")
 include("pullbacks/add.jl")
 include("pullbacks/trace.jl")
 include("pullbacks/contract.jl")

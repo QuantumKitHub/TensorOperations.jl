@@ -1,62 +1,96 @@
-function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α, β, ba...)
+function tensorcontract_pullback!(
+        ΔC, ΔA, ΔB,
+        C,
+        A, pA::Index2Tuple, conjA::Bool,
+        B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple,
+        α::Number, β::Number,
+        ba...
+    )
+    dA = tensorcontract_pullback_dA!(ΔA, ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...)
+    dB = tensorcontract_pullback_dB!(ΔB, ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...)
+    dα = tensorcontract_pullback_dα(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...)
+    dβ = pullback_dβ(ΔC, C, β)
+    dC = pullback_dC!(ΔC, β)
+    return dC, dA, dB, dα, dβ
+end
+
+function tensorcontract_pullback_dA(
+        ΔC, C,
+        A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple, α::Number, ba...
+    )
     pdC = inversepermutation(pAB, numout(pA))
     ipA = inversepermutation(pA, A)
-    ipB = inversepermutation(pB, B)
-
-    conjΔC = conjA
-    conjB′ = conjA ? conjB : !conjB
-    ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
-    tensorcontract!(
-        ΔAc,
-        ΔC, pdC, conjΔC,
-        B, reverse(pB), conjB′,
-        ipA,
-        conjA ? α : conj(α), One(), ba...
+    return tensorcontract(
+        ΔC, pdC, conjA, B, reverse(pB), conjA ? conjB : !conjB,
+        ipA, conjA ? α : conj(α), ba...
     )
+end
+function tensorcontract_pullback_dA!(
+        ΔA, ΔC, C,
+        A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple, α::Number, ba...
+    )
+
     if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
+        ΔAc = tensorcontract_pullback_dA(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...)
         ΔA .+= real.(ΔAc)
+    else
+        pdC = inversepermutation(pAB, numout(pA))
+        ipA = inversepermutation(pA, A)
+        tensorcontract!(
+            ΔA,
+            ΔC, pdC, conjA, B, reverse(pB), conjA ? conjB : !conjB,
+            ipA, conjA ? α : conj(α), One(), ba...
+        )
     end
 
-    conjΔC = conjB
-    conjA′ = conjB ? conjA : !conjA
-    ΔBc = eltype(ΔC) <: Complex && eltype(ΔB) <: Real ? zerovector(B, VectorInterface.promote_add(ΔC, α)) : ΔB
-    tensorcontract!(
-        ΔBc,
-        A, reverse(pA), conjA′,
-        ΔC, pdC, conjΔC,
-        ipB,
-        conjB ? α : conj(α), One(), ba...
+    return ΔA
+end
+
+function tensorcontract_pullback_dB(
+        ΔC, C,
+        A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple, α::Number, ba...
+    )
+    pdC = inversepermutation(pAB, numout(pA))
+    ipB = inversepermutation(pB, B)
+    return tensorcontract(
+        A, reverse(pA), conjB ? conjA : !conjA, ΔC, pdC, conjB,
+        ipB, conjB ? α : conj(α), ba...
+    )
+end
+function tensorcontract_pullback_dB!(
+        ΔB, ΔC, C,
+        A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple, α::Number, ba...
     )
     if eltype(ΔC) <: Complex && eltype(ΔB) <: Real
+        ΔBc = tensorcontract_pullback_dB(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...)
         ΔB .+= real.(ΔBc)
+    else
+        pdC = inversepermutation(pAB, numout(pA))
+        ipB = inversepermutation(pB, B)
+        tensorcontract!(
+            ΔB,
+            A, reverse(pA), conjB ? conjA : !conjA, ΔC, pdC, conjB,
+            ipB, conjB ? α : conj(α), One(), ba...
+        )
     end
 
-    Δα = if _needs_tangent(α)
+    return ΔB
+end
+
+function tensorcontract_pullback_dα(
+        ΔC, C,
+        A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple, α::Number, ba...
+    )
+    return if _needs_tangent(α)
         C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-        # TODO: consider using `inner`
-        tensorscalar(
-            tensorcontract(
-                C_αβ, trivialtuple(0, numind(pAB)), true,
-                ΔC, trivialtuple(numind(pAB, 0), false,
-                ((), ()), One(), ba...
-            )
-        )
+        inner(C_αβ, ΔC)
     else
         nothing
     end
-
-    Δβ = if _needs_tangent(β)
-        # TODO: consider using `inner`
-        tensorscalar(
-            tensorcontract(
-                C, trivialtuple(0, numind(pAB)), true,
-                ΔC, trivialtuple(numind(pAB), 0), false,
-                ((), ()), One(), ba...
-            )
-        )
-    else
-        nothing
-    end
-    scale!(ΔC, conj(β))
-    return ΔC, ΔA, ΔB, Δα, Δβ
 end
