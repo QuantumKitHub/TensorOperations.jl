@@ -9,7 +9,7 @@ function tensoradd_pullback!(ΔC, ΔA, C, A, pA::Index2Tuple, conjA::Bool, α, �
         tensorscalar(
             tensorcontract(
                 A, ((), linearize(pA)), !conjA,
-                ΔC, (trivtuple(numind(pA)), ()), false,
+                ΔC, trivialpermutation(numind(pA), 0), false,
                 ((), ()), One(), ba...
             )
         )
@@ -19,8 +19,8 @@ function tensoradd_pullback!(ΔC, ΔA, C, A, pA::Index2Tuple, conjA::Bool, α, �
     Δβ = if _needs_tangent(β)
         tensorscalar(
             tensorcontract(
-                C, ((), trivtuple(numind(pA))), true,
-                ΔC, (trivtuple(numind(pA)), ()), false,
+                C, trivialpermutation(0, numind(pA)), true,
+                ΔC, trivialpermutation(numind(pA), 0), false,
                 ((), ()), One(), ba...
             )
         )

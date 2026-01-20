@@ -1,11 +1,8 @@
 function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α, β, ba...)
-    ipAB = invperm(linearize(pAB))
-    pdC = (
-        TupleTools.getindices(ipAB, trivtuple(numout(pA))),
-        TupleTools.getindices(ipAB, numout(pA) .+ trivtuple(numin(pB))),
-    )
-    ipA = (invperm(linearize(pA)), ())
-    ipB = (invperm(linearize(pB)), ())
+    pdC = inversepermutation(pAB, numout(pA))
+    ipA = inversepermutation(pA, A)
+    ipB = inversepermutation(pB, B)
+
     conjΔC = conjA
     conjB′ = conjA ? conjB : !conjB
     ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
@@ -19,6 +16,7 @@ function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::B
     if eltype(ΔC) <: Complex && eltype(ΔA) <: Real
         ΔA .+= real.(ΔAc)
     end
+
     conjΔC = conjB
     conjA′ = conjB ? conjA : !conjA
     ΔBc = eltype(ΔC) <: Complex && eltype(ΔB) <: Real ? zerovector(B, VectorInterface.promote_add(ΔC, α)) : ΔB
@@ -32,25 +30,27 @@ function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::B
     if eltype(ΔC) <: Complex && eltype(ΔB) <: Real
         ΔB .+= real.(ΔBc)
     end
+
     Δα = if _needs_tangent(α)
         C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
         # TODO: consider using `inner`
         tensorscalar(
             tensorcontract(
-                C_αβ, ((), trivtuple(numind(pAB))), true,
-                ΔC, (trivtuple(numind(pAB)), ()), false,
+                C_αβ, trivialtuple(0, numind(pAB)), true,
+                ΔC, trivialtuple(numind(pAB, 0), false,
                 ((), ()), One(), ba...
             )
         )
     else
         nothing
     end
+
     Δβ = if _needs_tangent(β)
         # TODO: consider using `inner`
         tensorscalar(
             tensorcontract(
-                C, ((), trivtuple(numind(pAB))), true,
-                ΔC, (trivtuple(numind(pAB)), ()), false,
+                C, trivialtuple(0, numind(pAB)), true,
+                ΔC, trivialtuple(numind(pAB), 0), false,
                 ((), ()), One(), ba...
             )
         )
