@@ -1,4 +1,4 @@
-function tensortrace_pullback!(ΔC, ΔA, C, A, α, β, p, q, conjA, ba...)
+function tensortrace_pullback!(ΔC, ΔA, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool, α, β, ba...)
     ip = invperm((linearize(p)..., q[1]..., q[2]...))
     Es = map(q[1], q[2]) do i1, i2
         one(

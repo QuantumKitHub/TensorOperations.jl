@@ -1,4 +1,4 @@
-function tensoradd_pullback!(ΔC, ΔA, C, A, α, β, pA, conjA::Bool, ba...)
+function tensoradd_pullback!(ΔC, ΔA, C, A, pA::Index2Tuple, conjA::Bool, α, β, ba...)
     ipA = invperm(linearize(pA))
     ΔAc = eltype(ΔC) <: Complex && eltype(ΔA) <: Real ? zerovector(A, VectorInterface.promote_add(ΔC, α)) : ΔA
     tensoradd!(ΔAc, ΔC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba...)

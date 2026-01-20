@@ -59,7 +59,7 @@ function Mooncake.rrule!!(
     TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
     function contract_pb(::NoRData)
         scale!(C, C_cache, One())
-        dC, dA, dB, Δα, Δβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, C, A, B, α, β, pA, pB, pAB, conjA, conjB, ba...)
+        dC, dA, dB, Δα, Δβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
         dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
         dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
@@ -80,7 +80,7 @@ function Mooncake.rrule!!(
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     C, dC = arrayify(C_dC)
     A, dA = arrayify(A_dA)
-    pA = primal(pA_dpA)
+    pA    = primal(pA_dpA)
     conjA = primal(conjA_dconjA)
     α = primal(α_dα)
     β = primal(β_dβ)
@@ -89,7 +89,7 @@ function Mooncake.rrule!!(
     TensorOperations.tensoradd!(C, A, pA, conjA, α, β, ba...)
     function add_pb(::NoRData)
         scale!(C, C_cache, One())
-        dC, dA, Δα, Δβ = TensorOperations.tensoradd_pullback!(dC, dA, C, A, α, β, pA, conjA, ba...)
+        dC, dA, Δα, Δβ = TensorOperations.tensoradd_pullback!(dC, dA, C, A, pA, conjA, α, β, ba...)
         dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
         dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
@@ -121,7 +121,7 @@ function Mooncake.rrule!!(
     TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, ba...)
     function trace_pb(::NoRData)
         scale!(C, C_cache, One())
-        dC, dA, Δα, Δβ = TensorOperations.tensortrace_pullback!(dC, dA, C, A, α, β, p, q, conjA, ba...)
+        dC, dA, Δα, Δβ = TensorOperations.tensortrace_pullback!(dC, dA, C, A, p, q, conjA, α, β, ba...)
         dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
         dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...

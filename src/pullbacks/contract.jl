@@ -1,4 +1,4 @@
-function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, B, α, β, pA, pB, pAB, conjA::Bool, conjB::Bool, ba...)
+function tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α, β, ba...)
     ipAB = invperm(linearize(pAB))
     pdC = (
         TupleTools.getindices(ipAB, trivtuple(numout(pA))),
