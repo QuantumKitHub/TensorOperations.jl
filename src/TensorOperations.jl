@@ -36,6 +36,12 @@ include("backends.jl")
 include("interface.jl")
 include("utils.jl")
 
+# Generic pullbacks for AD
+#---------------------------
+include("pullbacks/add.jl")
+include("pullbacks/trace.jl")
+include("pullbacks/contract.jl")
+
 # Index notation via macros
 #---------------------------
 @nospecialize

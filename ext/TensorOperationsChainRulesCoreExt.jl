@@ -1,15 +1,13 @@
 module TensorOperationsChainRulesCoreExt
 
 using TensorOperations
-using TensorOperations: numind, numin, numout, promote_contract, _needs_tangent
+using TensorOperations: numind, numin, numout, promote_contract, _needs_tangent, trivtuple
 using TensorOperations: DefaultBackend, DefaultAllocator, _kron
 using ChainRulesCore
 using TupleTools
 using VectorInterface
 using TupleTools: invperm
 using LinearAlgebra
-
-trivtuple(N) = ntuple(identity, N)
 
 @non_differentiable TensorOperations.tensorstructure(args...)
 @non_differentiable TensorOperations.tensoradd_structure(args...)
