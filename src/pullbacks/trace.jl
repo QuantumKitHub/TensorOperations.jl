@@ -86,17 +86,14 @@ function tensortrace_pullback_dα(
         ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
         α::Number, ba...
     )
-    return if _needs_tangent(α)
-        C_αβ = tensortrace(A, p, q, false, One(), ba...)
-        tensorscalar(
-            tensorcontract(
-                C_αβ, trivialpermutation(0, numind(p)),
-                !conjA,
-                ΔC, trivialpermutation(numind(p), 0), false,
-                ((), ()), One(), ba...
-            )
+    _needs_tangent(α) || return nothing
+    C_αβ = tensortrace(A, p, q, false, One(), ba...)
+    return tensorscalar(
+        tensorcontract(
+            C_αβ, trivialpermutation(0, numind(p)),
+            !conjA,
+            ΔC, trivialpermutation(numind(p), 0), false,
+            ((), ()), One(), ba...
         )
-    else
-        nothing
-    end
+    )
 end

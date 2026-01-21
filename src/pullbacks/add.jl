@@ -45,15 +45,12 @@ end
 Compute the pullback for [`tensoradd!]`(ref) with respect to scaling coefficient `α`.
 """
 function tensoradd_pullback_dα(ΔC, C, A, pA::Index2Tuple, conjA::Bool, α, ba...)
-    return if _needs_tangent(α)
-        tensorscalar(
-            tensorcontract(
-                A, repartition(pA, 0), !conjA,
-                ΔC, trivialpermutation(numind(pA), 0), false,
-                ((), ()), One(), ba...
-            )
+    _needs_tangent(α) || return nothing
+    return tensorscalar(
+        tensorcontract(
+            A, repartition(pA, 0), !conjA,
+            ΔC, trivialpermutation(numind(pA), 0), false,
+            ((), ()), One(), ba...
         )
-    else
-        nothing
-    end
+    )
 end

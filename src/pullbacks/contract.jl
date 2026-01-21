@@ -120,10 +120,7 @@ function tensorcontract_pullback_dα(
         A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
         pAB::Index2Tuple, α::Number, ba...
     )
-    return if _needs_tangent(α)
-        C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-        inner(C_αβ, ΔC)
-    else
-        nothing
-    end
+    _needs_tangent(α) || return nothing
+    C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
+    return inner(C_αβ, ΔC)
 end
