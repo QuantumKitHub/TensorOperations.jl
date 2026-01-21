@@ -49,9 +49,9 @@ end
     inversepermutation(p::Index2Tuple, partition_as::Index2Tuple) -> ip::Index2Tuple
     inversepermutation(p::Index2Tuple, partition_as::AbstractArray) -> ip::Index2Tuple
 
-Compute the inverse permutation associated to `p`.
-If no extra arguments are provided, the result is returned as a single `IndexTuple`.
-Otherwise, the extra arguments are used to partition the inverse permutation into an `Index2Tuple`.
+Compute the inverse permutation associated with `p`.
+If no extra arguments are provided, the result is returned as a single [`IndexTuple`](@ref).
+Otherwise, the extra arguments are used to partition the inverse permutation into an [`Index2Tuple`](@ref).
 """
 inversepermutation(p::Index2Tuple) = invperm(linearize(p))
 function inversepermutation(p::Index2Tuple, args...)

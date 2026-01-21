@@ -1,3 +1,11 @@
+"""
+    tensorcontract_pullback!(ΔC, ΔA, ΔB, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, β::Number, ba...) -> ΔC, ΔA, ΔB, Δα, Δβ
+
+Compute pullbacks for [`tensorcontract!`](@ref), updating cotangent arrays and returning cotangent scalars.
+
+See also [`pullback_dC`](@ref), [`tensorcontract_pullback_dA`](@ref), [`tensorcontract_pullback_dB`](@ref),
+[`tensorcontract_pullback_dα`](@ref) and [`pullback_dβ`](@ref) for computing pullbacks for the individual components.
+"""
 function tensorcontract_pullback!(
         ΔC, ΔA, ΔB,
         C,
@@ -14,6 +22,16 @@ function tensorcontract_pullback!(
     dC = pullback_dC!(ΔC, β)
     return dC, dA, dB, dα, dβ
 end
+
+@doc """
+    tensorcontract_pullback_dA(ΔC, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, ba...)
+    tensorcontract_pullback_dA!(ΔA, ΔC, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, ba...)
+
+Compute the pullback for [`tensorcontract!`](@ref) with respect to the input `A`.
+The mutating version can be used to accumulate the result into `ΔA`.
+
+See also [`tensorcontract_pullback_dB`](@ref) and [`tensorcontract_pullback_dB!`](@ref) for the pullback with respect to `B`.
+""" tensorcontract_pullback_dA, tensorcontract_pullback_dA!
 
 function tensorcontract_pullback_dA(
         ΔC, C,
@@ -49,6 +67,16 @@ function tensorcontract_pullback_dA!(
     return ΔA
 end
 
+@doc """
+    tensorcontract_pullback_dB(ΔC, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, ba...)
+    tensorcontract_pullback_dB!(ΔB, ΔC, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, ba...)
+
+Compute the pullback for [`tensorcontract!`](@ref) with respect to the input `B`.
+The mutating version can be used to accumulate the result into `ΔB`.
+
+See also [`tensorcontract_pullback_dA`](@ref) and [`tensorcontract_pullback_dA!`](@ref) for the pullback with respect to `A`.
+""" tensorcontract_pullback_dB, tensorcontract_pullback_dB!
+
 function tensorcontract_pullback_dB(
         ΔC, C,
         A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,
@@ -82,6 +110,11 @@ function tensorcontract_pullback_dB!(
     return ΔB
 end
 
+"""
+    tensorcontract_pullback_dα(ΔC, C, A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool, pAB::Index2Tuple, α::Number, ba...)
+
+Compute the pullback for [`tensorcontract!`](@ref) with respect to scaling coefficient `α`.
+"""
 function tensorcontract_pullback_dα(
         ΔC, C,
         A, pA::Index2Tuple, conjA::Bool, B, pB::Index2Tuple, conjB::Bool,

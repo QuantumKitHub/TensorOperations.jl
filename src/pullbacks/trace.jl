@@ -1,3 +1,11 @@
+"""
+    tensortrace_pullback!(ΔC, ΔA, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool, α::Number, β::Number, ba...) -> ΔC, ΔA, Δα, Δβ
+
+Compute pullbacks for [`tensortrace!`](@ref), updating cotangent arrays and returning cotangent scalars.
+
+See also [`pullback_dC`](@ref), [`tensortrace_pullback_dA`](@ref), [`tensortrace_pullback_dα`](@ref) and [`pullback_dβ`](@ref)
+for computing pullbacks for the individual components.
+"""
 function tensortrace_pullback!(
         ΔC, ΔA,
         C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
@@ -10,6 +18,14 @@ function tensortrace_pullback!(
 
     return dC, dA, dα, dβ
 end
+
+@doc """
+    tensortrace_pullback_dA(ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool, α::Number, ba...)
+    tensortrace_pullback_dA!(ΔA, ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool, α::Number, ba...)
+
+Compute the pullback for [`tensortrace!`](@ref) with respect to the input `A`.
+The mutating version can be used to accumulate the result into `ΔA`.
+""" tensortrace_pullback_dA, tensortrace_pullback_dA!
 
 function tensortrace_pullback_dA(
         ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
@@ -61,6 +77,11 @@ function tensortrace_pullback_dA!(
     return ΔA
 end
 
+"""
+    tensortrace_pullback_dα(ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool, α::Number, ba...)
+
+Compute the pullback for [`tensortrace!`](@ref) with respect to scaling coefficient `α`.
+"""
 function tensortrace_pullback_dα(
         ΔC, C, A, p::Index2Tuple, q::Index2Tuple, conjA::Bool,
         α::Number, ba...
