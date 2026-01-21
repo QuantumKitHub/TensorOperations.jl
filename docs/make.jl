@@ -18,7 +18,8 @@ makedocs(;
             "man/precompilation.md",
         ],
         "Index" => "index/index.md",
-    ]
+    ],
+    checkdocs = :public
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

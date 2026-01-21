@@ -6,7 +6,7 @@ using TensorOperations
 # extension are in fact loaded
 using Mooncake, Mooncake.CRC
 using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, ManualAllocator
-using TensorOperations: tensoralloc, tensoradd!, tensorcontract!, tensortrace!, _kron, numind, _needs_tangent, numin, numout
+using TensorOperations: tensoralloc, tensoradd!, tensorcontract!, tensortrace!
 using Mooncake: ReverseMode, DefaultCtx, CoDual, NoRData, arrayify, @zero_derivative, primal, tangent
 using VectorInterface, TupleTools
 
@@ -15,8 +15,6 @@ Mooncake.tangent_type(::Type{<:AbstractBackend}) = Mooncake.NoTangent
 Mooncake.tangent_type(::Type{DefaultAllocator}) = Mooncake.NoTangent
 Mooncake.tangent_type(::Type{CUDAAllocator}) = Mooncake.NoTangent
 Mooncake.tangent_type(::Type{ManualAllocator}) = Mooncake.NoTangent
-
-trivtuple(N) = ntuple(identity, N)
 
 @zero_derivative DefaultCtx Tuple{typeof(TensorOperations.tensorstructure), Any}
 @zero_derivative DefaultCtx Tuple{typeof(TensorOperations.tensoradd_structure), Any}
@@ -61,69 +59,9 @@ function Mooncake.rrule!!(
     TensorOperations.tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
     function contract_pb(::NoRData)
         scale!(C, C_cache, One())
-        if Tα == Zero && Tβ == Zero
-            scale!(dC, zero(TC))
-            return ntuple(i -> NoRData(), 11 + length(ba))
-        end
-        ipAB = invperm(linearize(pAB))
-        pdC = (
-            TupleTools.getindices(ipAB, trivtuple(numout(pA))),
-            TupleTools.getindices(ipAB, numout(pA) .+ trivtuple(numin(pB))),
-        )
-        ipA = (invperm(linearize(pA)), ())
-        ipB = (invperm(linearize(pB)), ())
-        conjΔC = conjA
-        conjB′ = conjA ? conjB : !conjB
-        dA = tensorcontract!(
-            dA,
-            dC, pdC, conjΔC,
-            B, reverse(pB), conjB′,
-            ipA,
-            conjA ? α : conj(α), One(), ba...
-        )
-        conjΔC = conjB
-        conjA′ = conjB ? conjA : !conjA
-        dB = tensorcontract!(
-            dB,
-            A, reverse(pA), conjA′,
-            dC, pdC, conjΔC,
-            ipB,
-            conjB ? α : conj(α), One(), ba...
-        )
-        dα = if _needs_tangent(Tα)
-            C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-            # TODO: consider using `inner`
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C_αβ, ((), trivtuple(numind(pAB))), true,
-                        dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        dβ = if _needs_tangent(Tβ)
-            # TODO: consider using `inner`
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C, ((), trivtuple(numind(pAB))), true,
-                        dC, (trivtuple(numind(pAB)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        if β === Zero()
-            scale!(dC, β)
-        else
-            scale!(dC, conj(β))
-        end
+        dC, dA, dB, Δα, Δβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
+        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
+        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, contract_pb
@@ -151,35 +89,9 @@ function Mooncake.rrule!!(
     TensorOperations.tensoradd!(C, A, pA, conjA, α, β, ba...)
     function add_pb(::NoRData)
         scale!(C, C_cache, One())
-        ipA = invperm(linearize(pA))
-        dA = tensoradd!(dA, dC, (ipA, ()), conjA, conjA ? α : conj(α), One(), ba...)
-        dα = if _needs_tangent(Tα)
-            tensorscalar(
-                tensorcontract(
-                    A, ((), linearize(pA)), !conjA,
-                    dC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba...
-                )
-            )
-        else
-            Mooncake.NoRData()
-        end
-        dβ = if _needs_tangent(Tβ)
-            tensorscalar(
-                tensorcontract(
-                    C, ((), trivtuple(numind(pA))), true,
-                    dC, (trivtuple(numind(pA)), ()), false,
-                    ((), ()), One(), ba...
-                )
-            )
-        else
-            Mooncake.NoRData()
-        end
-        if β === Zero()
-            scale!(dC, β)
-        else
-            scale!(dC, conj(β))
-        end
+        dC, dA, Δα, Δβ = TensorOperations.tensoradd_pullback!(dC, dA, C, A, pA, conjA, α, β, ba...)
+        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
+        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, add_pb
@@ -209,54 +121,9 @@ function Mooncake.rrule!!(
     TensorOperations.tensortrace!(C, A, p, q, conjA, α, β, ba...)
     function trace_pb(::NoRData)
         scale!(C, C_cache, One())
-        ip = invperm((linearize(p)..., q[1]..., q[2]...))
-        Es = map(q[1], q[2]) do i1, i2
-            one(
-                TensorOperations.tensoralloc_add(
-                    TensorOperations.scalartype(A), A, ((i1,), (i2,)), conjA
-                )
-            )
-        end
-        E = _kron(Es, ba)
-        dA = tensorproduct!(
-            dA, dC, (trivtuple(numind(p)), ()), conjA,
-            E, ((), trivtuple(numind(q))), conjA,
-            (ip, ()),
-            conjA ? α : conj(α), One(), ba...
-        )
-        C_αβ = tensortrace(A, p, q, false, One(), ba...)
-        dα = if _needs_tangent(Tα)
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C_αβ, ((), trivtuple(numind(p))),
-                        !conjA,
-                        dC, (trivtuple(numind(p)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        dβ = if _needs_tangent(Tβ)
-            Mooncake._rdata(
-                tensorscalar(
-                    tensorcontract(
-                        C, ((), trivtuple(numind(p))), true,
-                        dC, (trivtuple(numind(p)), ()), false,
-                        ((), ()), One(), ba...
-                    )
-                )
-            )
-        else
-            NoRData()
-        end
-        if β === Zero()
-            scale!(dC, β)
-        else
-            scale!(dC, conj(β))
-        end
+        dC, dA, Δα, Δβ = TensorOperations.tensortrace_pullback!(dC, dA, C, A, p, q, conjA, α, β, ba...)
+        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
+        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, trace_pb
