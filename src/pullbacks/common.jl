@@ -12,6 +12,7 @@ _needs_tangent(x) = _needs_tangent(typeof(x))
 _needs_tangent(::Type{<:Number}) = true
 _needs_tangent(::Type{<:Integer}) = false
 _needs_tangent(::Type{<:Union{One, Zero}}) = false
+_needs_tangent(::Type{Complex{T}}) where {T} = _needs_tangent(T)
 
 # (partial) pullbacks that are shared
 @doc """
