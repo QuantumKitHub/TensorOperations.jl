@@ -6,7 +6,10 @@ using ChainRulesTestUtils
 ChainRulesTestUtils.test_method_tables()
 
 @testset "tensortrace! ($T₁, $T₂)" for (T₁, T₂) in
-    ((Float64, Float64), (Float32, Float64), (ComplexF64, ComplexF64), (Float64, ComplexF64))
+    (
+        (Float64, Float64), (Float32, Float64),
+        (ComplexF64, ComplexF64), (Float64, ComplexF64),
+    )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))
     rtol = max(precision(T₁), precision(T₂))
@@ -23,10 +26,21 @@ ChainRulesTestUtils.test_method_tables()
 
     test_rrule(tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol)
     test_rrule(tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol)
+
+    # Test double traces
+    p2 = ((2,), ())
+    q2 = ((1, 3), (4, 5)) # traces 1-4 and 3-5
+    A2 = rand(T₁, (2, 3, 4, 2, 4))
+    C2 = rand(T₂, size.(Ref(A2), p2[1]))
+
+    test_rrule(tensortrace!, C2, A2, p2, q2, false, α, β; atol, rtol)
 end
 
 @testset "tensoradd! ($T₁, $T₂)" for (T₁, T₂) in
-    ((Float64, Float64), (Float32, Float64), (ComplexF64, ComplexF64), (Float64, ComplexF64))
+    (
+        (Float64, Float64), (Float32, Float64),
+        (ComplexF64, ComplexF64), (Float64, ComplexF64),
+    )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))
     rtol = max(precision(T₁), precision(T₂))
@@ -44,7 +58,10 @@ end
 end
 
 @testset "tensorcontract! ($T₁, $T₂)" for (T₁, T₂) in
-    ((Float64, Float64), (Float32, Float64), (ComplexF64, ComplexF64), (Float64, ComplexF64))
+    (
+        (Float64, Float64), (Float32, Float64),
+        (ComplexF64, ComplexF64), (Float64, ComplexF64),
+    )
     T = promote_type(T₁, T₂)
     atol = max(precision(T₁), precision(T₂))
     rtol = max(precision(T₁), precision(T₂))
