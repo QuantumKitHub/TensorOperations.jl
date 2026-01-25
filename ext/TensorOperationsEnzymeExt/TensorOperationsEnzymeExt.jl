@@ -75,7 +75,8 @@ function EnzymeRules.reverse(
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
-    dC, dA, dB, dα, dβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, Cval, Aval, pA_dpA.val, conjA_dconjA.val, Bval, pB_dpB.val, conjB_dconjB.val, pAB_dpAB.val, α, β, ba...)
+    pA, pB, pAB, conjA, conjB = getfield.((pA_dpA, pB_dpB, pAB_dpAB, conjA_dconjA, conjB_dconjB), :val)
+    dC, dA, dB, dα, dβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, Cval, Aval, pA, conjA, Bval, pB, conjB, pAB, α, β, ba...)
     return nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, dα, dβ, map(ba_ -> nothing, ba)...
 end
 
