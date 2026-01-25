@@ -68,7 +68,8 @@ function EnzymeRules.reverse(
     cache_A, cache_B, cache_C = cache
     Aval = something(cache_A, A_dA.val)
     Bval = something(cache_B, B_dB.val)
-    Cval = cache_C
+    Cval = cache_C # might be nothing if iszero(β)
+    # good way to check that we don't use it accidentally when we should not be needing it?
     dC = C_dC.dval
     dA = A_dA.dval
     dB = B_dB.dval
