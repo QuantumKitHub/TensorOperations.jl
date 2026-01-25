@@ -34,8 +34,8 @@ function EnzymeRules.augmented_primal(
         ba_dba::Const...,
     ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TB <: Number, TC <: Number}
     # form caches if needed
-    cache_A = !isa(A_dA, Const) && EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
-    cache_B = !isa(B_dB, Const) && EnzymeRules.overwritten(config)[6] ? copy(B_dB.val) : nothing
+    cache_A = EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
+    cache_B = EnzymeRules.overwritten(config)[6] ? copy(B_dB.val) : nothing
     cache_C = copy(C_dC.val) # do we need to do this, if we don't need the primal?
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA_dpA.val, conjA_dconjA.val, B_dB.val, pB_dpB.val, conjB_dconjB.val, pAB_dpAB.val, α_dα.val, β_dβ.val, ba...)
