@@ -28,10 +28,8 @@ is_primitive = false
         Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β; atol, rtol, mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β; atol, rtol, mode, is_primitive)
 
-        if T <: Real
-            Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
-            Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol, mode, is_primitive)
-        end # tangents don't work nicely here
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol, mode, is_primitive)
     end
 end
 
@@ -53,10 +51,8 @@ end
         Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β; atol, rtol, mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β; atol, rtol, mode, is_primitive)
 
-        if T <: Real
-            Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
-            Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β, StridedNative(); atol, rtol, mode, is_primitive)
-        end # tangents don't work nicely here
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β, StridedNative(); atol, rtol, mode, is_primitive)
     end
 end
 
@@ -85,18 +81,16 @@ end
         Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, false, B, pB, true, pAB, α, β; atol, rtol, mode, is_primitive)
         Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, true, B, pB, true, pAB, α, β; atol, rtol, mode, is_primitive)
 
-        if T <: Real
-            Mooncake.TestUtils.test_rule(
-                rng,
-                tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β, StridedBLAS();
-                atol, rtol, mode, is_primitive
-            )
-            Mooncake.TestUtils.test_rule(
-                rng,
-                tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β, StridedNative();
-                atol, rtol, mode, is_primitive
-            )
-        end # tangents don't work nicely here
+        Mooncake.TestUtils.test_rule(
+            rng,
+            tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β, StridedBLAS();
+            atol, rtol, mode, is_primitive
+        )
+        Mooncake.TestUtils.test_rule(
+            rng,
+            tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β, StridedNative();
+            atol, rtol, mode, is_primitive
+        )
     end
 end
 
