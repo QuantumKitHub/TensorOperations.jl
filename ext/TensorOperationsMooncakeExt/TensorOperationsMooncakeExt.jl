@@ -60,8 +60,8 @@ function Mooncake.rrule!!(
     function contract_pb(::NoRData)
         scale!(C, C_cache, One())
         dC, dA, dB, Δα, Δβ = TensorOperations.tensorcontract_pullback!(dC, dA, dB, C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
-        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
-        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
+        dα = isnothing(Δα) ? NoRData() : Δα
+        dβ = isnothing(Δβ) ? NoRData() : Δβ
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, contract_pb
@@ -90,8 +90,8 @@ function Mooncake.rrule!!(
     function add_pb(::NoRData)
         scale!(C, C_cache, One())
         dC, dA, Δα, Δβ = TensorOperations.tensoradd_pullback!(dC, dA, C, A, pA, conjA, α, β, ba...)
-        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
-        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
+        dα = isnothing(Δα) ? NoRData() : Δα
+        dβ = isnothing(Δβ) ? NoRData() : Δβ
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, add_pb
@@ -122,8 +122,8 @@ function Mooncake.rrule!!(
     function trace_pb(::NoRData)
         scale!(C, C_cache, One())
         dC, dA, Δα, Δβ = TensorOperations.tensortrace_pullback!(dC, dA, C, A, p, q, conjA, α, β, ba...)
-        dα = isnothing(Δα) ? NoRData() : Mooncake._rdata(Δα)
-        dβ = isnothing(Δβ) ? NoRData() : Mooncake._rdata(Δβ)
+        dα = isnothing(Δα) ? NoRData() : Δα
+        dβ = isnothing(Δβ) ? NoRData() : Δβ
         return NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), NoRData(), dα, dβ, map(ba_ -> NoRData(), ba)...
     end
     return C_dC, trace_pb
