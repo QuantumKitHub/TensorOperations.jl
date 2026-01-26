@@ -36,7 +36,8 @@ function EnzymeRules.augmented_primal(
     # form caches if needed
     cache_A = EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
     cache_B = EnzymeRules.overwritten(config)[6] ? copy(B_dB.val) : nothing
-    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : nothing
+    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : C_dC.val
+    #cache_C = copy(C_dC.val)
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA_dpA.val, conjA_dconjA.val, B_dB.val, pB_dpB.val, conjB_dconjB.val, pAB_dpAB.val, α_dα.val, β_dβ.val, ba...)
     primal = if EnzymeRules.needs_primal(config)
@@ -68,7 +69,7 @@ function EnzymeRules.reverse(
     cache_A, cache_B, cache_C = cache
     Aval = something(cache_A, A_dA.val)
     Bval = something(cache_B, B_dB.val)
-    Cval = cache_C # might be nothing if iszero(β)
+    Cval = cache_C
     # good way to check that we don't use it accidentally when we should not be needing it?
     dC = C_dC.dval
     dA = A_dA.dval
@@ -95,7 +96,8 @@ function EnzymeRules.augmented_primal(
     ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     # form caches if needed
     cache_A = EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
-    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : nothing
+    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : C_dC.val
+    #cache_C = copy(C_dC.val)
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
@@ -152,7 +154,8 @@ function EnzymeRules.augmented_primal(
     ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     # form caches if needed
     cache_A = EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
-    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : nothing
+    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : C_dC.val
+    #cache_C = copy(C_dC.val)
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
