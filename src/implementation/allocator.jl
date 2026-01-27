@@ -65,8 +65,8 @@ mutable struct BufferAllocator{Storage}
     end
 end
 
-BufferAllocator(; kwargs...) =
-    BufferAllocator{@static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}}(; kwargs...)
+const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
+BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
 
 # ------------------------------------------------------------------------------------------
 # Generic implementation
