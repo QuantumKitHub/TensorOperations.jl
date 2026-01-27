@@ -44,7 +44,10 @@ struct ManualAllocator end
 # ------------------------------------------------------------------------------------------
 # Generic implementation
 # ------------------------------------------------------------------------------------------
+
+# function that mimicks the operations that are applied to the scalars during contraction
 tensorop(args...) = +(*(args...), *(args...))
+
 """
     promote_contract(args...)
 
@@ -172,6 +175,7 @@ tensorfree!(C, allocator = DefaultAllocator()) = nothing
 # ------------------------------------------------------------------------------------------
 # ManualAllocator implementation
 # ------------------------------------------------------------------------------------------
+
 function tensoralloc(
         ::Type{A}, structure, ::Val{istemp}, ::ManualAllocator
     ) where {A <: AbstractArray, istemp}
