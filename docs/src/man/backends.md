@@ -129,11 +129,14 @@ In particular, this means that the backend will be selected **first**, while onl
 ```@docs
 TensorOperations.DefaultAllocator
 TensorOperations.ManualAllocator
+TensorOperations.BufferAllocator
 ```
 
 By default, the `DefaultAllocator` is used, which uses Julia's built-in memory management system.
 Optionally, it can be useful to use the `ManualAllocator`, as the manual memory management reduces the pressure on the garbage collector.
 In particular in multi-threaded applications, this can sometimes lead to a significant performance improvement.
+On the other hand, for often-repeated but thread-safe `@tensor` calls, the `BufferAllocator` is a lightweight slab allocator that pre-allocates a buffer for temporaries, falling back to Julia's default if needed.
+Upon repeated use it will automatically resize the buffer to accommodate for the requested temporaries.
 
 Finally, users can also opt to use the `Bumper.jl` system, which pre-allocates a slab of memory that can be re-used afterwards.
 This is available through a package extension for `Bumper`.
@@ -165,4 +168,18 @@ TensorOperations.CUDAAllocator
 
 Users can also define their own allocators, to facilitate experimentation with new implementations.
 Here, no restriction is made on the type of the allocator, and any object can be passed as an allocator.
-The required implemented methods are [`tensoralloc`](@ref) and [`tensorfree!`](@ref).
+
+The core methods that can be customized for an allocator are:
+
+* [`tensoralloc`](@ref): Allocate a tensor of a given type and structure. This method receives a flag indicating whether the tensor is temporary (will not persist outside the `@tensor` block) or permanent. Temporary tensors can be allocated from internal buffers or pools, while permanent tensors should use a standard allocation strategy.
+* [`tensorfree!`](@ref): Explicitly free a tensor, if applicable. For custom allocators that manage internal pools or buffers, this can be used to track when temporaries are no longer needed.
+
+Here we are guaranteeing that every `tensoralloc` call that has the temporary flag will be accompanied by exactly one matching call to `tensorfree!`, as soon as the temporary object is no longer needed.
+
+For allocators that manage reusable buffers or maintain state across multiple contractions, the following helper methods can be useful:
+
+* [`allocator_checkpoint!`](@ref): Save the current state of the allocator (e.g., the current offset in a buffer). This can be called before a sequence of tensor operations to capture the allocation state.
+* [`allocator_reset!`](@ref): Restore the allocator to a previously saved checkpoint, effectively releasing all allocations made since the checkpoint was taken. 
+
+Here we are guaranteeing that every created checkpoint will be restored, and all temporary allocations that are inclosed within this scope will no longer be accessed.
+Additionally, if multiple checkpoints are created, they will be restored in the reverse order of how they were created.

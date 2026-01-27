@@ -94,6 +94,21 @@ TensorOperations.tensoralloc_add
 TensorOperations.tensoralloc_contract
 ```
 
+For allocators that manage reusable buffers or maintain state across multiple tensor
+operations, the following helper functions provide an interface for managing allocation
+regions:
+
+```@docs
+TensorOperations.allocator_checkpoint!
+TensorOperations.allocator_reset!
+```
+
+These can be used to save the current allocator state before a region of code and restore it
+afterwards, where it is guaranteed that all temporary objects allocated within that region
+are released. This is particularly useful for nested tensor operations or when repeatedly
+evaluating the same tensor contraction with an allocator like
+[`TensorOperations.BufferAllocator`](@ref).
+
 ## Utility
 
 Some of the optional keywords for `@tensor` can be accessed only after implementing the
