@@ -234,8 +234,10 @@ function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = fals
     # determine actual size:
     # - clamp if we are allowed to shrink
     # - round to next power of 2
-    n = Int(Base.nextpow(2, shrink ? n : max(n, length(buffer.buffer))))
-    buffer.buffer = similar(buffer.buffer, n) # not using sizehint because Memory not supported
+    n = Int(Base.nextpow(2, shrink ? n : max(n, length(buffer.buffer)))) ÷ sizeof(eltype(buffer.buffer))
+    if n != length(buffer.buffer)
+        buffer.buffer = similar(buffer.buffer, n) # not using resize! because might be Memory
+    end
 
     # reset max_offset if allowed to shrink
     shrink && (buffer.max_offset = 0)
