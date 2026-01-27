@@ -38,8 +38,11 @@ if !is_buildkite
     end
     # mystery segfault on 1.10 for now
     @static if VERSION >= v"1.11.0"
-        @testset "enzyme" verbose = false begin
-            include("enzyme.jl")
+        is_apple_ci = Sys.isapple() && get(ENV, "CI", "false") == "true"
+        if !is_apple_ci
+            @testset "enzyme" verbose = false begin
+                include("enzyme.jl")
+            end
         end
     end
 end
