@@ -154,11 +154,7 @@ function EnzymeRules.augmented_primal(
     β = β_dβ.val
     conjA = conjA_dconjA.val
     TensorOperations.tensortrace!(C_dC.val, A_dA.val, p_dp.val, q_dq.val, conjA, α, β, ba...)
-    primal = if EnzymeRules.needs_primal(config)
-        C_dC.val
-    else
-        nothing
-    end
+    primal = EnzymeRules.needs_primal(config) ? C_dC.val : nothing
     shadow = EnzymeRules.needs_shadow(config) ? C_dC.dval : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, (cache_A, cache_C))
 end
