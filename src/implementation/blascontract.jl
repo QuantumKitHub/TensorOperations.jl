@@ -14,12 +14,14 @@ function blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
         TupleTools.getindices(indCinoBA, tpAB[1]),
         TupleTools.getindices(indCinoBA, tpAB[2]),
     )
-
+    cp = allocator_checkpoint!(allocator)
     if contract_memcost(C, A, pA, B, pB, pAB) <= contract_memcost(C, B, rpB, A, rpA, rpAB)
-        return _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
+        C = _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     else
-        return _blas_contract!(C, B, rpB, A, rpA, rpAB, α, β, backend, allocator)
+        C = _blas_contract!(C, B, rpB, A, rpA, rpAB, α, β, backend, allocator)
     end
+    allocator_reset!(allocator, cp)
+    return C
 end
 # specialised fast path for matrix matrix multiplication
 function blas_contract!(
