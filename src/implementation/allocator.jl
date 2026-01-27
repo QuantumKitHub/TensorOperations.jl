@@ -261,8 +261,8 @@ function tensoralloc(
         isempty(buffer) && sizehint!(buffer, buffer.max_offset)
 
         # Use pointer if there is enough space
-        ptr = convert(Ptr{T}, pointer(buffer, buffer.offset))
         if offset < length(buffer)
+            ptr = convert(Ptr{T}, pointer(buffer, buffer.offset))
             buffer.offset = offset
             return Base.unsafe_wrap(Array, ptr, structure)
         end
