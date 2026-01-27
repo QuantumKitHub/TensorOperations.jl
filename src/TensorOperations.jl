@@ -22,7 +22,7 @@ export @cutensor, @butensor
 export ncon
 export tensorcopy!, tensoradd!, tensortrace!, tensorcontract!, tensorproduct!, tensorscalar
 export tensorcopy, tensoradd, tensortrace, tensorcontract, tensorproduct, scalartype
-export tensoralloc, tensorfree!
+export tensoralloc, tensorfree!, allocator_checkpoint!, allocator_reset!
 
 export IndexTuple, Index2Tuple, linearize
 
