@@ -6,7 +6,7 @@ Random.seed!(1234567)
 
 using TensorOperations: IndexError
 using TensorOperations: BaseCopy, BaseView, StridedNative, StridedBLAS
-using TensorOperations: DefaultAllocator, ManualAllocator
+using TensorOperations: DefaultAllocator, ManualAllocator, BufferAllocator
 
 precision(::Type{<:Union{Float32, Complex{Float32}}}) = 1.0e-2
 precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
@@ -29,6 +29,9 @@ if !is_buildkite
     end
     @testset "macro with index notation" verbose = true begin
         include("tensor.jl")
+    end
+    @testset "allocator" verbose = true begin
+        include("allocator.jl")
     end
     @testset "ad" verbose = false begin
         include("ad.jl")
