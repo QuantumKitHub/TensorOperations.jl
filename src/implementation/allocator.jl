@@ -41,6 +41,29 @@ block, which will thus still be managed using Julia's GC. The other tensors will
 """
 struct ManualAllocator end
 
+"""
+    BufferAllocator([buffer])
+
+Allocator that uses a pre-allocated buffer for storing temporary tensors.
+When the buffer is full, the allocator falls back on Julia's default allocation mechanism
+to create temporary tensors, but keeps track of how much additional memory is required.
+When the buffer is fully reset, the buffer is automatically resized to ensure subsequent
+contractions will now fit in the buffer.
+"""
+mutable struct BufferAllocator{Storage}
+    buffer::Storage
+    offset::UInt
+    max_offset::UInt
+
+    function BufferAllocator{Storage}(; sizehint::Integer = 0) where {Storage}
+        n = iszero(sizehint) ? sizehint : Base.nextpow(2, sizehint)
+        return new{Storage}(Storage(undef, n), 0, 0)
+    end
+end
+
+BufferAllocator(; kwargs...) =
+    BufferAllocator{@static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}}(; kwargs...)
+
 # ------------------------------------------------------------------------------------------
 # Generic implementation
 # ------------------------------------------------------------------------------------------
@@ -189,4 +212,66 @@ end
 function tensorfree!(C::PtrArray, ::ManualAllocator)
     free(C)
     return nothing
+end
+
+# ------------------------------------------------------------------------------------------
+# BufferAllocator implementation
+# ------------------------------------------------------------------------------------------
+
+# length in bytes
+Base.length(buffer::BufferAllocator) = length(buffer.buffer) * sizeof(eltype(buffer.buffer))
+Base.isempty(buffer::BufferAllocator) = iszero(buffer.offset)
+Base.pointer(buffer::BufferAllocator) = pointer(buffer.buffer)
+Base.pointer(buffer::BufferAllocator, offset) = pointer(buffer) + offset # ensure offset is in bytes
+
+function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = false)
+    isempty(buffer) || error("Cannot resize a buffer that still contains elements")
+
+    # determine actual size:
+    # - clamp if we are allowed to shrink
+    # - round to next power of 2
+    n = Int(Base.nextpow(2, shrink ? n : max(n, length(buffer.buffer))))
+    buffer.buffer = similar(buffer.buffer, n) # not using sizehint because Memory not supported
+
+    # reset max_offset if allowed to shrink
+    shrink && (buffer.max_offset = 0)
+
+    return buffer
+end
+
+# how many bytes should be reserved
+allocation_size(::Type{T}, structure::Base.Dims) where {T} = prod(structure) * sizeof(T)
+
+function tensoralloc(
+        ::Type{A}, structure, ::Val{istemp}, buffer::BufferAllocator
+    ) where {A <: AbstractArray, istemp}
+    if istemp
+        T = eltype(A)
+        offset = buffer.offset + allocation_size(T, structure)
+        buffer.max_offset = max(buffer.max_offset, offset)
+
+        # Use pointer if there is enough space
+        ptr = convert(Ptr{T}, pointer(buffer, buffer.offset))
+        if offset < length(buffer)
+            buffer.offset = offset
+            return Base.unsafe_wrap(Array, ptr, structure)
+        end
+    end
+
+    # Allocate default if not
+    return A(undef, structure)
+end
+
+allocator_checkpoint!(buffer::BufferAllocator) = buffer.offset
+
+function allocator_reset!(buffer::BufferAllocator, checkpoint)
+    checkpoint ≤ buffer.offset ||
+        throw(ArgumentError("Invalid checkpoint: `allocator_reset!` has to be called in reverse order on saved checkpoints"))
+    buffer.offset = checkpoint
+
+    # check for growth
+    iszero(checkpoint) && (buffer.max_offset > length(buffer)) &&
+        sizehint!(buffer, buffer.max_offset)
+
+    return buffer
 end
