@@ -15,7 +15,6 @@ precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
 # specific ones
 is_buildkite = get(ENV, "BUILDKITE", "false") == "true"
 if !is_buildkite
-
     @testset "tensoropt" verbose = true begin
         include("tensoropt.jl")
     end
@@ -36,6 +35,12 @@ if !is_buildkite
     end
     @testset "mooncake" verbose = false begin
         include("mooncake.jl")
+    end
+    # mystery segfault on 1.10 for now
+    @static if VERSION >= v"1.11.0"
+        @testset "enzyme" verbose = false begin
+            include("enzyme.jl")
+        end
     end
 end
 
