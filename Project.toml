@@ -22,16 +22,16 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [extensions]
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
-TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
 TensorOperationsMooncakeExt = "Mooncake"
 TensorOperationsEnzymeExt = ["Enzyme", "ChainRulesCore"]
+TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
