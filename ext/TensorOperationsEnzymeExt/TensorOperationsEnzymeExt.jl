@@ -39,11 +39,7 @@ function EnzymeRules.augmented_primal(
     cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : C_dC.val
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA_dpA.val, conjA_dconjA.val, B_dB.val, pB_dpB.val, conjB_dconjB.val, pAB_dpAB.val, α_dα.val, β_dβ.val, ba...)
-    primal = if EnzymeRules.needs_primal(config)
-        C_dC.val
-    else
-        nothing
-    end
+    primal = EnzymeRules.needs_primal(config) ? C_dC.val : nothing
     shadow = EnzymeRules.needs_shadow(config) ? C_dC.dval : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, (cache_A, cache_B, cache_C))
 end
