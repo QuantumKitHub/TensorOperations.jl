@@ -67,6 +67,7 @@ function tensorparser(tensorexpr, kwargs...)
                 push!(parser.postprocessors, ex -> insertbackend(ex, backend))
             end
             push!(parser.postprocessors, ex -> insertallocator(ex, allocator))
+            push!(parser.postprocessors, ex -> insertcheckpoints(ex, allocator))
             break
         end
     end

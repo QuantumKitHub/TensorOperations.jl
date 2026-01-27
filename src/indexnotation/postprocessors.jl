@@ -113,3 +113,20 @@ function insertallocator(ex, allocator)
         )
     )
 end
+
+# TODO: this is currently only marking a single checkpoint per `@tensor` call.
+"""
+    insertcheckpoints(ex, allocator)
+
+Insert the [`allocator_checkpoint!`](@ref) and [`allocator_reset!`](@ref) calls before and after tensor contractions.
+"""
+function insertcheckpoints(ex, allocator)
+    cp = gensym("checkpoint")
+    res = gensym("result")
+    return quote
+        $cp = $(GlobalRef(TensorOperations, :allocator_checkpoint!))($allocator)
+        $res = $ex
+        $(GlobalRef(TensorOperations, :allocator_reset!))($allocator, $cp)
+        $res
+    end
+end
