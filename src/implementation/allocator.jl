@@ -42,13 +42,17 @@ block, which will thus still be managed using Julia's GC. The other tensors will
 struct ManualAllocator end
 
 """
-    BufferAllocator([buffer])
+    BufferAllocator(; sizehint = 0)
 
 Allocator that uses a pre-allocated buffer for storing temporary tensors.
 When the buffer is full, the allocator falls back on Julia's default allocation mechanism
 to create temporary tensors, but keeps track of how much additional memory is required.
 When the buffer is fully reset, the buffer is automatically resized to ensure subsequent
 contractions will now fit in the buffer.
+
+!!! warning
+    This allocator is **not** thread-safe, and it is the user's responsibility to avoid running
+    the same allocator on concurrent jobs.
 """
 mutable struct BufferAllocator{Storage}
     buffer::Storage
