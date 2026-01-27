@@ -60,13 +60,19 @@ mutable struct BufferAllocator{Storage}
     max_offset::UInt
 
     function BufferAllocator{Storage}(; sizehint::Integer = 0) where {Storage}
-        n = iszero(sizehint) ? sizehint : Base.nextpow(2, sizehint)
+        T = eltype(Storage)
+        (isbitstype(T) && sizeof(T) == 1) ||
+            throw(ArgumentError("Buffer should have elements that take up a single byte."))
+        n = _buffersz(sizehint)
         return new{Storage}(Storage(undef, n), 0, 0)
     end
 end
 
 const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
 BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
+
+# allocate buffers in sizes that are powers of 2
+_buffersz(x::Integer) = iszero(x) ? x : Base.nextpow(2, x)
 
 # ------------------------------------------------------------------------------------------
 # Generic implementation
@@ -223,21 +229,16 @@ end
 # ------------------------------------------------------------------------------------------
 
 # length in bytes
-Base.length(buffer::BufferAllocator) = length(buffer.buffer) * sizeof(eltype(buffer.buffer))
+Base.length(buffer::BufferAllocator) = length(buffer.buffer)
 Base.isempty(buffer::BufferAllocator) = iszero(buffer.offset)
-Base.pointer(buffer::BufferAllocator) = pointer(buffer.buffer)
-Base.pointer(buffer::BufferAllocator, offset) = pointer(buffer) + offset # ensure offset is in bytes
+Base.pointer(buffer::BufferAllocator, args...) = pointer(buffer.buffer, args...)
 
 function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = false)
     isempty(buffer) || error("Cannot resize a buffer that still contains elements")
 
-    # determine actual size:
-    # - clamp if we are allowed to shrink
-    # - round to next power of 2
-    n = Int(Base.nextpow(2, shrink ? n : max(n, length(buffer.buffer)))) ÷ sizeof(eltype(buffer.buffer))
-    if n != length(buffer.buffer)
-        buffer.buffer = similar(buffer.buffer, n) # not using resize! because might be Memory
-    end
+    n = _buffersz(shrink ? n : max(n, length(buffer)))
+    # not using resize! because might not be resizable
+    (n == length(buffer)) || (buffer.buffer = similar(buffer.buffer, n))
 
     # reset max_offset if allowed to shrink
     shrink && (buffer.max_offset = 0)
