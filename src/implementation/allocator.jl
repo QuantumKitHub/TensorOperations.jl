@@ -254,6 +254,9 @@ function tensoralloc(
         offset = buffer.offset + allocation_size(T, structure)
         buffer.max_offset = max(buffer.max_offset, offset)
 
+        # grow buffer if empty
+        isempty(buffer) && sizehint!(buffer, buffer.max_offset)
+
         # Use pointer if there is enough space
         ptr = convert(Ptr{T}, pointer(buffer, buffer.offset))
         if offset < length(buffer)
@@ -272,10 +275,5 @@ function allocator_reset!(buffer::BufferAllocator, checkpoint)
     checkpoint ≤ buffer.offset ||
         throw(ArgumentError("Invalid checkpoint: `allocator_reset!` has to be called in reverse order on saved checkpoints"))
     buffer.offset = checkpoint
-
-    # check for growth
-    iszero(checkpoint) && (buffer.max_offset > length(buffer)) &&
-        sizehint!(buffer, buffer.max_offset)
-
     return buffer
 end
