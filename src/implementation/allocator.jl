@@ -234,16 +234,23 @@ Base.isempty(buffer::BufferAllocator) = iszero(buffer.offset)
 Base.pointer(buffer::BufferAllocator) = pointer(buffer.buffer)
 Base.pointer(buffer::BufferAllocator, offset) = pointer(buffer) + offset
 
-function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = false)
+Base.empty!(buffer::BufferAllocator) = (buffer.offset = 0; buffer)
+
+function Base.resize!(buffer::BufferAllocator, n::Integer)
     isempty(buffer) || error("Cannot resize a buffer that still contains elements")
+    n = _buffersz(n)
+    n == length(buffer) || (buffer.buffer = similar(buffer.buffer, n))
+    return buffer
+end
+function Base.resize!(buffer::BufferAllocator{<:Vector}, n::Integer)
+    isempty(buffer) || error("Cannot resize a buffer that still contains elements")
+    n = _buffersz(n)
+    n == length(buffer) || resize!(buffer.buffer, n)
+    return buffer
+end
 
-    n = _buffersz(shrink ? n : max(n, length(buffer)))
-    # not using resize! because might not be resizable
-    (n == length(buffer)) || (buffer.buffer = similar(buffer.buffer, n))
-
-    # reset max_offset if allowed to shrink
-    shrink && (buffer.max_offset = 0)
-
+function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = false)
+    buffer.max_offset = shrink ? n : max(buffer.max_offset, n)
     return buffer
 end
 
@@ -256,10 +263,10 @@ function tensoralloc(
     if istemp
         T = eltype(A)
         offset = buffer.offset + allocation_size(T, structure)
-        buffer.max_offset = max(buffer.max_offset, offset)
+        sizehint!(buffer, offset)
 
         # grow buffer if empty
-        isempty(buffer) && sizehint!(buffer, buffer.max_offset)
+        isempty(buffer) && resize!(buffer, buffer.max_offset)
 
         # Use pointer if there is enough space
         if offset < length(buffer)

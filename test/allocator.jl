@@ -16,38 +16,38 @@ using LinearAlgebra
         @test buffer.max_offset == 0
 
         # Test constructor with sizehint
-        buffer2 = BufferAllocator(sizehint = 1024)
+        buffer2 = BufferAllocator(; sizehint = 1024)
         @test length(buffer2) == 1024
         @test isempty(buffer2)
         @test buffer2.offset == 0
         @test buffer2.max_offset == 0
 
         # Test with explicit storage type
-        buffer3 = BufferAllocator{Vector{UInt8}}(sizehint = 512)
+        buffer3 = BufferAllocator{Vector{UInt8}}(; sizehint = 512)
         @test buffer3 isa BufferAllocator{Vector{UInt8}}
         @test length(buffer3) >= 512
 
         # sizehint! grows to next power-of-two elements (UInt8)
-        sizehint!(buffer, 3000)
+        resize!(buffer, 3000)
         @test length(buffer) == 4096
         @test isempty(buffer)
         @test buffer.max_offset == 0
 
         # Cannot resize non-empty buffer
         buffer.offset = 100
-        @test_throws ErrorException sizehint!(buffer, 4096)
+        @test_throws ErrorException resize!(buffer, 4096)
         # Reset and try again
-        buffer.offset = 0
-        sizehint!(buffer, 4096)
+        empty!(buffer)
+        resize!(buffer, 4096)
         @test length(buffer) == 4096
 
         # Test shrinking (only when allowed)
         sizehint!(buffer, 1024, shrink = true)
-        @test length(buffer) == 1024
+        @test buffer.max_offset == 1024
 
         # sizehint! does not shrink when shrink=false
         sizehint!(buffer, 512)
-        @test length(buffer) == 1024
+        @test buffer.max_offset == 1024
     end
 
     @testset "Checkpoint and reset" begin
