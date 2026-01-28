@@ -3,8 +3,10 @@ module TensorOperationsBumperExt
 using TensorOperations
 using Bumper
 
+const BumperBuffer = Union{SlabBuffer, AllocBuffer}
+
 function TensorOperations.tensoralloc(
-        ::Type{A}, structure, ::Val{istemp}, buf::Union{SlabBuffer, AllocBuffer}
+        ::Type{A}, structure, ::Val{istemp}, buf::BumperBuffer
     ) where {A <: AbstractArray, istemp}
     # TODO: remove the `ndims` check if this is fixed in Bumper / StrideArraysCore
     if istemp && ndims(A) > 0
@@ -14,37 +16,23 @@ function TensorOperations.tensoralloc(
     end
 end
 
-function TensorOperations.blas_contract!(
-        C, A, pA, B, pB, pAB, α, β,
-        backend, allocator::Union{SlabBuffer, AllocBuffer}
-    )
-    @no_escape allocator begin
-        C = Base.@invoke TensorOperations.blas_contract!(
-            C, A, pA, B, pB, pAB, α, β, backend, allocator::Any
-        )
-    end
-    return C
-end
+TensorOperations.allocator_checkpoint!(alloc::BumperBuffer) = Bumper.checkpoint_save(alloc)
+TensorOperations.allocator_reset!(::BumperBuffer, cp) = Bumper.checkpoint_restore!(cp)
 
 function TensorOperations._butensor(src, ex...)
     buf_sym = gensym("buffer")
-    cp_sym = gensym("checkpoint")
-    res_sym = gensym("result")
 
     # TODO: there is no check for doubled tensor kwargs
     newex = quote
         $buf_sym = $(Expr(:call, GlobalRef(Bumper, :default_buffer)))
-        $cp_sym = $(Expr(:call, GlobalRef(Bumper, :checkpoint_save), buf_sym))
-        $res_sym = $(
+        $(
             Expr(
                 :macrocall, GlobalRef(TensorOperations, Symbol("@tensor")),
                 src, :(allocator = $buf_sym), ex...
             )
         )
-        $(Expr(:call, GlobalRef(Bumper, :checkpoint_restore!), cp_sym))
-        $res_sym
     end
-    return return Base.remove_linenums!(newex)
+    return Base.remove_linenums!(newex)
 end
 
 end

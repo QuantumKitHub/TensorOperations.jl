@@ -267,6 +267,26 @@ See also [`tensoralloc`](@ref).
 """
 function tensorfree! end
 
+"""
+    allocator_checkpoint!(allocator) -> checkpoint
+
+Mark a checkpoint for a given allocator.
+This can for example be used to implement stack-based buffer schemes, such as provided by Bumper.jl.
+
+See also [`allocator_reset!`](@ref).
+"""
+allocator_checkpoint!(allocator) = nothing
+
+"""
+    allocator_reset!(allocator, checkpoint)
+
+Reset a given allocator to the state provided by the marked `checkpoint`.
+This can for example be used to implement stack-based buffer schemes, such as provided by Bumper.jl.
+
+See also [`allocator_checkpoint!`](@ref).
+"""
+allocator_reset!(allocator, checkpoint) = allocator
+
 #-------------------------------------------------------------------------------------------
 # Utility
 #-------------------------------------------------------------------------------------------

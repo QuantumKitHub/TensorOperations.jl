@@ -203,7 +203,7 @@ end
     end
 
     @testset "tensorcontract! with allocator = $allocator" for allocator in
-        (DefaultAllocator(), ManualAllocator())
+        (DefaultAllocator(), ManualAllocator(), BufferAllocator())
         Abig = rand(Float64, (30, 30, 30, 30))
         A = view(Abig, 1 .+ 3 * (0:8), 2 .+ 2 * (0:14), 5 .+ 4 * (0:6), 7 .+ 2 * (0:8))
         Bbig = rand(ComplexF64, (50, 50, 50))
