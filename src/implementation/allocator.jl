@@ -231,7 +231,8 @@ end
 # length in bytes
 Base.length(buffer::BufferAllocator) = length(buffer.buffer)
 Base.isempty(buffer::BufferAllocator) = iszero(buffer.offset)
-Base.pointer(buffer::BufferAllocator, args...) = pointer(buffer.buffer, args...)
+Base.pointer(buffer::BufferAllocator) = pointer(buffer.buffer)
+Base.pointer(buffer::BufferAllocator, offset) = pointer(buffer) + offset
 
 function Base.sizehint!(buffer::BufferAllocator, n::Integer; shrink::Bool = false)
     isempty(buffer) || error("Cannot resize a buffer that still contains elements")
