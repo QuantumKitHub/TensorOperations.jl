@@ -52,7 +52,9 @@ contractions will now fit in the buffer.
 
 !!! warning
     This allocator is **not** thread-safe, and it is the user's responsibility to avoid running
-    the same allocator on concurrent jobs.
+    the same allocator on concurrent jobs. For concurrent usage, it is recommended to either
+    manually use a separate buffer per task, or leverage Bumper.jl through [`@butensor`](@ref)
+    instead.
 """
 mutable struct BufferAllocator{Storage}
     buffer::Storage
