@@ -258,6 +258,7 @@ end
 
 # how many bytes should be reserved
 allocation_size(::Type{T}, structure::Base.Dims) where {T} = prod(structure) * sizeof(T)
+allocation_size(::Type{T}, structure::Int) where {T} = structure * sizeof(T)
 
 function tensoralloc(
         ::Type{A}, structure, ::Val{istemp}, buffer::BufferAllocator
