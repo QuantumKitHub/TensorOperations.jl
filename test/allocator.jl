@@ -59,9 +59,9 @@ using LinearAlgebra
         @test cp0 == 0
 
         # Allocate some tensors
-        t1 = tensoralloc(Array{UInt8, 2}, (10, 10), Val(true), buffer) # should fit
-        @test t1 isa Array{UInt8, 2}
-        @test size(t1) == (10, 10)
+        t1 = tensoralloc(Vector{UInt8}, 100, Val(true), buffer) # should fit
+        @test t1 isa Vector{UInt8}
+        @test size(t1) == (100,)
         cp1 = allocator_checkpoint!(buffer)
         @test cp1 > cp0
         # Verify pointer backing from buffer
