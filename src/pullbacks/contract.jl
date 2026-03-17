@@ -122,5 +122,5 @@ function tensorcontract_pullback_dα(
     )
     _needs_tangent(α) || return nothing
     C_αβ = tensorcontract(A, pA, conjA, B, pB, conjB, pAB, One(), ba...)
-    return inner(C_αβ, ΔC)
+    return project_scalar(α, inner(C_αβ, ΔC))
 end

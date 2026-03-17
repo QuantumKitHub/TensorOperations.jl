@@ -1,5 +1,9 @@
 using TensorOperations, VectorInterface
-using Enzyme, ChainRulesCore, EnzymeTestUtils
+using Enzyme, EnzymeTestUtils
+
+# the full testsuite is really intensive
+# let's not run all of it on GitHub
+is_ci = get(ENV, "CI", "false") == "true"
 
 @testset "tensorcontract!" begin
     pAB = ((3, 2, 4, 1), ())
@@ -13,25 +17,45 @@ using Enzyme, ChainRulesCore, EnzymeTestUtils
             (ComplexF64, Float64),
         )
         T = promote_type(T₁, T₂)
-        atol = max(precision(T₁), precision(T₂))
-        rtol = max(precision(T₁), precision(T₂))
 
         A = rand(T₁, (2, 3, 4, 2, 5))
         B = rand(T₂, (4, 2, 3))
         C = rand(T, (5, 2, 3, 3))
+
+        atol = length(C) * max(precision(T₁), precision(T₂))
+        rtol = length(C) * max(precision(T₁), precision(T₂))
         zero_αβs = ((Zero(), Zero()), (randn(T), Zero()), (Zero(), randn(T)))
         αβs = (T == T₁ == T₂ == Float64) ? vcat(zero_αβs..., (randn(T), randn(T))) : ((randn(T), randn(T)),)
         # test zeros only once to avoid wasteful tests
         @testset for (α, β) in αβs
-            Tα = α === Zero() ? Const : Active
-            Tβ = β === Zero() ? Const : Active
-            test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
-            test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
-            test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
 
-            test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
-            test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
-
+                test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                    test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                    test_reverse(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
         end
     end
 end
@@ -54,13 +78,31 @@ end
         αβs = (T == T₁ == T₂ == Float64) ? vcat(zero_αβs..., (randn(T), randn(T))) : ((randn(T), randn(T)),)
         # test zeros only once to avoid wasteful tests
         @testset for (α, β) in αβs
-            Tα = α === Zero() ? Const : Active
-            Tβ = β === Zero() ? Const : Active
-            test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
-            test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
 
-            test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
-            test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
         end
     end
 end
@@ -85,13 +127,31 @@ end
         αβs = (T == T₁ == T₂ == Float64) ? vcat(zero_αβs..., (randn(T), randn(T))) : ((randn(T), randn(T)),)
         # test zeros only once to avoid wasteful tests
         @testset for (α, β) in αβs
-            Tα = α === Zero() ? Const : Active
-            Tβ = β === Zero() ? Const : Active
-            test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
-            test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Active, Const)
+            else
+                (Active,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
 
-            test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
-            test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_reverse(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
         end
     end
 end

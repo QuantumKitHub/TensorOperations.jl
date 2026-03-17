@@ -14,6 +14,15 @@ _needs_tangent(::Type{<:Integer}) = false
 _needs_tangent(::Type{<:Union{One, Zero}}) = false
 _needs_tangent(::Type{Complex{T}}) where {T} = _needs_tangent(T)
 
+"""
+    project_scalar(x::Number, dx::Number)
+
+Project a computed tangent `dx` onto the correct tangent type for `x`.
+For example, we might compute a complex `dx` but only require the real part.
+"""
+project_scalar(x::Number, dx::Number) = oftype(x, dx)
+project_scalar(x::Real, dx::Complex) = project_scalar(x, real(dx))
+
 # (partial) pullbacks that are shared
 @doc """
     pullback_dC(ΔC, β)
@@ -31,4 +40,4 @@ pullback_dC(ΔC, β) = scale(ΔC, conj(β))
 For functions of the form `f!(C, β, ...) = βC + ...`, compute the pullback with respect to `β`.
 """ pullback_dβ
 
-pullback_dβ(ΔC, C, β) = _needs_tangent(β) ? inner(C, ΔC) : nothing
+pullback_dβ(ΔC, C, β) = _needs_tangent(β) ? project_scalar(β, inner(C, ΔC)) : nothing
