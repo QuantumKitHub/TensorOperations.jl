@@ -88,7 +88,7 @@ function tensortrace_pullback_dα(
     )
     _needs_tangent(α) || return nothing
     C_αβ = tensortrace(A, p, q, false, One(), ba...)
-    return tensorscalar(
+    Δα = tensorscalar(
         tensorcontract(
             C_αβ, trivialpermutation(0, numind(p)),
             !conjA,
@@ -96,4 +96,5 @@ function tensortrace_pullback_dα(
             ((), ()), One(), ba...
         )
     )
+    return project_scalar(α, Δα)
 end
