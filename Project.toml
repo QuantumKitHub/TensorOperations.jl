@@ -31,6 +31,7 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsMooncakeExt = "Mooncake"
+TensorOperationsCUDAExt = "CUDA"
 TensorOperationsEnzymeExt = "Enzyme"
 TensorOperationsJLArraysExt = "JLArrays"
 TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
