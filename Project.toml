@@ -21,6 +21,7 @@ Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
+JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [extensions]
@@ -29,6 +30,7 @@ TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsMooncakeExt = "Mooncake"
 TensorOperationsEnzymeExt = "Enzyme"
 TensorOperationscuTENSORExt = "cuTENSOR"
+TensorOperationsJLArraysExt = "JLArrays"
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
@@ -38,6 +40,7 @@ ChainRulesTestUtils = "1"
 DynamicPolynomials = "0.5, 0.6"
 Enzyme = "0.13.115"
 EnzymeTestUtils = "0.2"
+JLArrays = "0.3"
 LRUCache = "1"
 LinearAlgebra = "1.6"
 Logging = "1.6"
