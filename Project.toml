@@ -76,3 +76,6 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
 test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils"]
+
+[sources]
+Strided = {url = "https://github.com/QuantumKitHub/Strided.jl/", rev = "ld-gpu"}
