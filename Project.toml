@@ -22,22 +22,26 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
+Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
+
+[sources]
+Strided = {rev = "ld-gpu", url = "https://github.com/QuantumKitHub/Strided.jl/"}
 
 [extensions]
 TensorOperationsBumperExt = "Bumper"
-TensorOperationsChainRulesCoreExt = "ChainRulesCore"
-TensorOperationsMooncakeExt = "Mooncake"
 TensorOperationsCUDAExt = "CUDA"
+TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsEnzymeExt = "Enzyme"
 TensorOperationsJLArraysExt = "JLArrays"
+TensorOperationsMooncakeExt = "Mooncake"
 TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
+Adapt = "4"
 Bumper = "0.6, 0.7"
 CUDA = "5"
 ChainRulesCore = "1"
@@ -64,6 +68,7 @@ cuTENSOR = "2.1.1"
 julia = "1.10"
 
 [extras]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -79,7 +84,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils"]
-
-[sources]
-Strided = {url = "https://github.com/QuantumKitHub/Strided.jl/", rev = "ld-gpu"}
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays"]
