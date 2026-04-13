@@ -166,6 +166,9 @@ end
 function tensoradd_type(TC, A::Base.PermutedDimsArray, pA::Index2Tuple, conjA::Bool)
     return tensoradd_type(TC, A.parent, pA, conjA)
 end
+function tensoradd_type(TC, A::StridedView, pA::Index2Tuple, conjA::Bool)
+    return tensoradd_type(TC, parent(A), pA, conjA)
+end
 
 function tensoradd_structure(A::AbstractArray, pA::Index2Tuple, conjA::Bool)
     return size.(Ref(A), linearize(pA))
