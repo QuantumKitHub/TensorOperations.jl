@@ -1,42 +1,12 @@
 const StridedViewOrDiagonal = Union{StridedView, Diagonal}
 
-_ishostarray(x::StridedView) = (pointer(x) isa Ptr)
-_ishostarray(x::Diagonal) = (pointer(x.diag) isa Ptr)
+select_backend(::typeof(tensoradd!), C::StridedView, A::StridedView) = StridedNative()
+select_backend(::typeof(tensortrace!), C::StridedView, A::StridedView) = StridedNative()
 
-function select_backend(::typeof(tensoradd!), C::StridedView, A::StridedView)
-    if _ishostarray(C) && _ishostarray(A)
-        return StridedNative()
-    else
-        return NoBackend()
-    end
-end
-function select_backend(::typeof(tensortrace!), C::StridedView, A::StridedView)
-    if _ishostarray(C) && _ishostarray(A)
-        return StridedNative()
-    else
-        return NoBackend()
-    end
-end
-
-function select_backend(
-        ::typeof(tensorcontract!), C::StridedView, A::StridedView, B::StridedView
-    )
-    if _ishostarray(C) && _ishostarray(A) && _ishostarray(B)
-        return eltype(C) <: LinearAlgebra.BlasFloat ? StridedBLAS() : StridedNative()
-    else
-        return NoBackend()
-    end
-end
-function select_backend(
-        ::typeof(tensorcontract!), C::StridedViewOrDiagonal,
-        A::StridedViewOrDiagonal, B::StridedViewOrDiagonal
-    )
-    if _ishostarray(C) && _ishostarray(A) && _ishostarray(B)
-        return StridedNative()
-    else
-        return NoBackend()
-    end
-end
+select_backend(::typeof(tensorcontract!), C::StridedView, A::StridedView, B::StridedView) =
+    eltype(C) <: LinearAlgebra.BlasFloat ? StridedBLAS() : StridedNative()
+select_backend(::typeof(tensorcontract!), C::StridedViewOrDiagonal, A::StridedViewOrDiagonal, B::StridedViewOrDiagonal) =
+    StridedNative()
 
 #-------------------------------------------------------------------------------------------
 # Force strided implementation on AbstractArray instances with Strided backend

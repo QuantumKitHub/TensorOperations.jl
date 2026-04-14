@@ -50,12 +50,13 @@ if !is_buildkite
     end
 end
 
-if is_buildkite
-    # note: cuTENSOR should not be loaded before this point
-    # as there is a test which requires it to be loaded after
-    @testset "cuTENSOR extension" verbose = true begin
-        include("cutensor.jl")
-    end
+# note: cuTENSOR should not be loaded before this point
+# as there is a test which requires it to be loaded after
+@testset "cuTENSOR extension" verbose = true begin
+    include("cutensor.jl")
+end
+@testset "GPUArrays" verbose = true begin
+    include("gpu.jl")
 end
 
 if !is_buildkite
