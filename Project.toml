@@ -4,7 +4,6 @@ version = "5.5.2"
 authors = ["Lukas Devos <lukas.devos@ugent.be>", "Maarten Van Damme <maartenvd1994@gmail.com>", "Jutho Haegeman <jutho.haegeman@ugent.be>"]
 
 [deps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 LRUCache = "8ac3fa9e-de4c-5943-b1dc-09c6b5f20637"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -16,11 +15,9 @@ Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
 StridedViews = "4db3bf67-4bd7-4b4e-b153-31dc3fb37143"
 TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
-cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [weakdeps]
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
@@ -31,12 +28,11 @@ TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsMooncakeExt = "Mooncake"
 TensorOperationsEnzymeExt = "Enzyme"
-TensorOperationscuTENSORExt = ["cuTENSOR", "CUDA"]
+TensorOperationscuTENSORExt = "cuTENSOR"
 
 [compat]
 Aqua = "0.6, 0.7, 0.8"
 Bumper = "0.6, 0.7"
-CUDA = "5"
 ChainRulesCore = "1"
 ChainRulesTestUtils = "1"
 DynamicPolynomials = "0.5, 0.6"
@@ -52,19 +48,20 @@ Preferences = "1.4"
 PtrArrays = "1.2"
 Random = "1"
 Strided = "2.2"
-StridedViews = "0.3, 0.4, ~0.4.2"
+StridedViews = "0.5"
 Test = "1"
 TupleTools = "1.6"
 VectorInterface = "0.4.1,0.5"
-cuTENSOR = "2.1.1"
+cuRAND = "6"
+cuTENSOR = "6"
 julia = "1.10"
 
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 ChainRulesTestUtils = "cdddcdb0-9152-4a09-a978-84456f9df70a"
+cuRAND = "20fd9a0b-12d5-4c2f-a8af-7c34e9e60431"
 DynamicPolynomials = "7c1d4256-1411-5781-91ec-d7bc3513ac07"
 Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 EnzymeTestUtils = "12d8515a-0907-448a-8884-5fe00fdf1c5a"
@@ -75,4 +72,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "CUDA", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils"]

@@ -21,10 +21,10 @@ using cuTENSOR: elementwise_binary_execute!, permute!, contract!, reduce!
 # reduce
 using cuTENSOR: reduction_compute_types, cutensorCreateReduction
 
-using cuTENSOR: CUDA
-using CUDA: CuArray, StridedCuArray, DenseCuArray, AnyCuArray
+using cuTENSOR: CUDACore
+using cuTENSOR.CUDACore: CuArray, StridedCuArray, DenseCuArray, AnyCuArray
 # this might be dependency-piracy, but removes a dependency from the main package
-using CUDA.Adapt: adapt
+using cuTENSOR.CUDACore.Adapt: adapt
 
 using Strided
 using TupleTools: TupleTools as TT
@@ -135,7 +135,7 @@ function _custrided(
     P = A.parent
     if P isa CuArray
         return A, true
-    elseif P isa Array && Min === CUDA.HostMemory
+    elseif P isa Array && Min === CUDACore.HostMemory
         P_cuda = unsafe_wrap(CuArray, P)
         return StridedView(P_cuda, A.size, A.strides, A.offset, A.op), true
     else
@@ -148,9 +148,9 @@ end
 # Allocator
 #-------------------------------------------------------------------------------------------
 function TO.CUDAAllocator()
-    Mout = CUDA.UnifiedMemory
-    Min = CUDA.default_memory
-    Mtemp = CUDA.default_memory
+    Mout = CUDACore.UnifiedMemory
+    Min = CUDACore.default_memory
+    Mtemp = CUDACore.default_memory
     return CUDAAllocator{Mout, Min, Mtemp}()
 end
 
@@ -191,7 +191,7 @@ function TO.tensoralloc(
 end
 
 function TO.tensorfree!(C::CuArray, ::CUDAAllocator)
-    CUDA.unsafe_free!(C)
+    CUDACore.unsafe_free!(C)
     return nothing
 end
 
@@ -199,7 +199,7 @@ end
 # Implementation
 #-------------------------------------------------------------------------------------------
 function TO.tensorscalar(C::CuStridedView)
-    return ndims(C) == 0 ? CUDA.@allowscalar(C[]) : throw(DimensionMismatch())
+    return ndims(C) == 0 ? CUDACore.@allowscalar(C[]) : throw(DimensionMismatch())
 end
 
 function tensorop(A::CuStridedView, conjA::Bool = false)
