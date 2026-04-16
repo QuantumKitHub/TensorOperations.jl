@@ -6,8 +6,10 @@
 end
 
 using cuTENSOR
-if cuTENSOR.has_cutensor()
-    using CUDA
+if cuTENSOR.functional()
+    using cuTENSOR: CUDACore
+    using cuTENSOR.CUDACore: CuMatrix, CuArray
+    using cuRAND
     using LinearAlgebra: norm
     using TensorOperations: IndexError
     using TensorOperations: cuTENSORBackend, CUDAAllocator
@@ -132,10 +134,10 @@ if cuTENSOR.has_cutensor()
             @test HRAA2 isa CuArray{T}
             @test collect(HRAA2) ≈ HRAA1
 
-            cumemtypes = (CUDA.DeviceMemory, CUDA.UnifiedMemory, CUDA.HostMemory)
+            cumemtypes = (CUDACore.DeviceMemory, CUDACore.UnifiedMemory, CUDACore.HostMemory)
             for Mout in cumemtypes
-                Min = CUDA.DeviceMemory
-                Mtemp = CUDA.DeviceMemory
+                Min = CUDACore.DeviceMemory
+                Mtemp = CUDACore.DeviceMemory
                 allocator = CUDAAllocator{Mout, Min, Mtemp}()
                 @tensor backend = cuTENSORBackend() allocator = allocator begin
                     HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
@@ -145,8 +147,8 @@ if cuTENSOR.has_cutensor()
                 @test collect(HRAA3) ≈ HRAA1
             end
             for Min in cumemtypes
-                Mout = CUDA.UnifiedMemory
-                Mtemp = CUDA.UnifiedMemory
+                Mout = CUDACore.UnifiedMemory
+                Mtemp = CUDACore.UnifiedMemory
                 allocator = CUDAAllocator{Mout, Min, Mtemp}()
                 @tensor backend = cuTENSORBackend() allocator = allocator begin
                     HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
@@ -241,11 +243,11 @@ if cuTENSOR.has_cutensor()
 
         @testset "views" begin
             p = [3, 1, 4, 2]
-            Abig = CUDA.randn(Float32, (30, 30, 30, 30))
+            Abig = cuRAND.randn(Float32, (30, 30, 30, 30))
             A = view(
                 Abig, 1 .+ 3 .* (0:9), 2 .+ 2 .* (0:6), 5 .+ 4 .* (0:6), 4 .+ 3 .* (0:8)
             )
-            Cbig = CUDA.zeros(Float32, (50, 50, 50, 50))
+            Cbig = CUDACore.zeros(Float32, (50, 50, 50, 50))
             C = view(Cbig, 13 .+ (0:6), 11 .+ 4 .* (0:9), 15 .+ 4 .* (0:8), 4 .+ 3 .* (0:6))
             Acopy = copy(A)
             Ccopy = copy(C)
@@ -265,11 +267,11 @@ if cuTENSOR.has_cutensor()
 
         @testset "views 2" begin
             p = [3, 1, 4, 2]
-            Abig = CUDA.randn(ComplexF32, (30, 30, 30, 30))
+            Abig = cuRAND.randn(ComplexF32, (30, 30, 30, 30))
             A = view(
                 Abig, 1 .+ 3 .* (0:9), 2 .+ 2 .* (0:6), 5 .+ 4 .* (0:6), 4 .+ 3 .* (0:8)
             )
-            Cbig = CUDA.zeros(ComplexF32, (50, 50, 50, 50))
+            Cbig = CUDACore.zeros(ComplexF32, (50, 50, 50, 50))
             C = view(Cbig, 13 .+ (0:6), 11 .+ 4 .* (0:9), 15 .+ 4 .* (0:8), 4 .+ 3 .* (0:6))
             Acopy = permutedims(copy(A), p)
             Ccopy = copy(C)
@@ -290,11 +292,11 @@ if cuTENSOR.has_cutensor()
         end
 
         @testset "views 3" begin
-            Abig = CUDA.rand(ComplexF64, (30, 30, 30, 30))
+            Abig = cuRAND.rand(ComplexF64, (30, 30, 30, 30))
             A = view(
                 Abig, 1 .+ 3 .* (0:8), 2 .+ 2 .* (0:14), 5 .+ 4 .* (0:6), 7 .+ 2 .* (0:8)
             )
-            Bbig = CUDA.rand(ComplexF64, (50, 50))
+            Bbig = cuRAND.rand(ComplexF64, (50, 50))
             B = view(Bbig, 13 .+ (0:14), 3 .+ 5 .* (0:6))
             Acopy = copy(A)
             Bcopy = copy(B)
@@ -317,14 +319,14 @@ if cuTENSOR.has_cutensor()
         end
 
         @testset "views 4" begin
-            Abig = CUDA.rand(ComplexF32, (30, 30, 30, 30))
+            Abig = CUDACore.rand(ComplexF32, (30, 30, 30, 30))
             A = view(
                 Abig, 1 .+ 3 .* (0:8), 2 .+ 2 .* (0:14), 5 .+ 4 .* (0:6),
                 7 .+ 2 .* (0:8)
             )
-            Bbig = CUDA.rand(ComplexF32, (50, 50, 50))
+            Bbig = CUDACore.rand(ComplexF32, (50, 50, 50))
             B = view(Bbig, 3 .+ 5 .* (0:6), 7 .+ 2 .* (0:7), 13 .+ (0:14))
-            Cbig = CUDA.rand(ComplexF32, (40, 40, 40))
+            Cbig = CUDACore.rand(ComplexF32, (40, 40, 40))
             C = view(Cbig, 3 .+ 2 .* (0:8), 13 .+ (0:8), 7 .+ 3 .* (0:7))
             Acopy = copy(A)
             Bcopy = copy(B)
