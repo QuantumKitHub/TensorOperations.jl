@@ -57,6 +57,36 @@ is_ci = get(ENV, "CI", "false") == "true"
                 end
             end
         end
+        @testset for (α, β) in αβs
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ); atol, rtol)
+
+                test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (false, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                    test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                    test_forward(tensorcontract!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (B, Duplicated), (pB, Const), (true, Const), (pAB, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
+        end
     end
 end
 
@@ -101,6 +131,34 @@ end
                 if !(T <: Real) && !(α === Zero()) && !(β === Zero())
                     test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
                     test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
+        end
+        # test zeros only once to avoid wasteful tests
+        @testset for (α, β) in αβs
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
+
+                test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_forward(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (true, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
                 end
             end
         end
@@ -153,6 +211,34 @@ end
                 end
             end
         end
+        # test zeros only once to avoid wasteful tests
+        @testset for (α, β) in αβs
+            Tαs = if α === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            Tβs = if β === Zero()
+                (Const,)
+            elseif !is_ci
+                (Duplicated, Const)
+            else
+                (Duplicated,)
+            end
+            for (Tα, Tβ) in zip(Tαs, Tβs)
+                test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ); atol, rtol)
+                test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ); atol, rtol)
+
+                test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (β, Tβ), (StridedBLAS(), Const); atol, rtol)
+                test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (false, Const), (α, Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                if !(T <: Real) && !(α === Zero()) && !(β === Zero())
+                    test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (real(α), Tα), (β, Tβ), (StridedNative(), Const); atol, rtol)
+                    test_forward(tensortrace!, Duplicated, (C, Duplicated), (A, Duplicated), (p, Const), (q, Const), (true, Const), (α, Tα), (real(β), Tβ), (StridedNative(), Const); atol, rtol)
+                end
+            end
+        end
     end
 end
 
@@ -163,4 +249,5 @@ end
     C = Array{T, 0}(undef, ())
     fill!(C, rand(T))
     test_reverse(tensorscalar, Active, (C, Duplicated); atol, rtol)
+    test_forward(tensorscalar, Duplicated, (C, Duplicated); atol, rtol)
 end

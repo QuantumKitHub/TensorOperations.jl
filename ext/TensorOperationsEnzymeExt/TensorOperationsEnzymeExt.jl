@@ -14,6 +14,7 @@ using Enzyme.EnzymeCore: EnzymeRules
 @inline EnzymeRules.inactive_type(v::Type{<:CUDAAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{ManualAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{<:Index2Tuple}) = true
+@inline EnzymeRules.inactive_type(v::Type{<:IndexTuple}) = true
 
 function EnzymeRules.augmented_primal(
         config::EnzymeRules.RevConfigWidth{1},
@@ -126,6 +127,46 @@ function EnzymeRules.reverse(
     return nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, Δα, Δβ, map(ba_ -> nothing, ba)...
 end
 
+function EnzymeRules.forward(
+        config::EnzymeRules.FwdConfigWidth{1},
+        func::Const{typeof(TensorOperations.tensorcontract!)},
+        ::Type{RT},
+        C_dC::Annotation{<:AbstractArray{TC}},
+        A_dA::Annotation{<:AbstractArray{TA}},
+        pA_dpA::Annotation{<:Index2Tuple},
+        conjA_dconjA::Const{Bool},
+        B_dB::Annotation{<:AbstractArray{TB}},
+        pB_dpB::Annotation{<:Index2Tuple},
+        conjB_dconjB::Const{Bool},
+        pAB_dpAB::Annotation{<:Index2Tuple},
+        α_dα::Annotation{Tα},
+        β_dβ::Annotation{Tβ},
+        ba_dba::Const...,
+    ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TB <: Number, TC <: Number}
+    ba = map(ba_ -> getfield(ba_, :val), ba_dba)
+    α = α_dα.val
+    β = β_dβ.val
+    pA, pB, pAB, conjA, conjB = getfield.((pA_dpA, pB_dpB, pAB_dpAB, conjA_dconjA, conjB_dconjB), :val)
+
+    if !isa(C_dC, Const)
+        scale!(C_dC.dval, β)
+        if !isa(β_dβ, Const)
+            @. C_dC.dval += β_dβ.dval * C_dC.val
+        end
+        if !isa(α_dα, Const)
+            tensorcontract!(C_dC.dval, A_dA.val, pA, conjA, B_dB.val, pB, conjB, pAB, α_dα.dval, One(), ba...)
+        end
+        if !isa(A_dA, Const)
+            tensorcontract!(C_dC.dval, A_dA.dval, pA, conjA, B_dB.val, pB, conjB, pAB, α, One(), ba...)
+        end
+        if !isa(B_dB, Const)
+            tensorcontract!(C_dC.dval, A_dA.val, pA, conjA, B_dB.dval, pB, conjB, pAB, α, One(), ba...):Zero()
+        end
+    end
+    TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA, conjA, B_dB.val, pB, conjB, pAB, α, β, ba...)
+    return C_dC
+end
+
 function EnzymeRules.augmented_primal(
         config::EnzymeRules.RevConfigWidth{1},
         ::Annotation{typeof(tensoradd!)},
@@ -196,6 +237,45 @@ function EnzymeRules.reverse(
     end
     !isa(C_dC, Const) && TensorOperations.pullback_dC!(C_dC.dval, β)
     return nothing, nothing, nothing, nothing, Δα, Δβ, map(ba_ -> nothing, ba)...
+end
+
+function EnzymeRules.forward(
+        config::EnzymeRules.FwdConfigWidth{1},
+        ::Annotation{typeof(tensoradd!)},
+        ::Type{RT},
+        C_dC::Annotation{<:AbstractArray{TC}},
+        A_dA::Annotation{<:AbstractArray{TA}},
+        pA_dpA::Annotation{<:Index2Tuple},
+        conjA_dconjA::Const{Bool},
+        α_dα::Annotation{Tα},
+        β_dβ::Annotation{Tβ},
+        ba_dba::Const...,
+    ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
+    pA = pA_dpA.val
+    conjA = conjA_dconjA.val
+    α = α_dα.val
+    β = β_dβ.val
+    ba = map(ba_ -> getfield(ba_, :val), ba_dba)
+
+    # D = α * A + β *C
+
+    # dD = dα * A + α * dA + β dC + dβ * C
+
+    # dC′ = β dC + dβ * C
+    if !isa(C_dC, Const)
+        scale!(C_dC.dval, β)
+        if !isa(β_dβ, Const)
+            @. C_dC.dval += β_dβ.dval * C_dC.val
+        end
+        if !isa(A_dA, Const)
+            TensorOperations.tensoradd!(C_dC.dval, A_dA.dval, pA, conjA, α, One(), ba...)
+        end
+        if !isa(α_dα, Const)
+            TensorOperations.tensoradd!(C_dC.dval, A_dA.val, pA, conjA, α_dα.dval, One(), ba...)
+        end
+    end
+    TensorOperations.tensoradd!(C_dC.val, A_dA.val, pA, conjA, α, β, ba...)
+    return C_dC
 end
 
 function EnzymeRules.augmented_primal(
@@ -271,6 +351,45 @@ function EnzymeRules.reverse(
     end
     !isa(C_dC, Const) && TensorOperations.pullback_dC!(C_dC.dval, β)
     return nothing, nothing, nothing, nothing, nothing, Δα, Δβ, map(ba_ -> nothing, ba)...
+end
+
+function EnzymeRules.forward(
+        config::EnzymeRules.RevConfigWidth{1},
+        ::Annotation{typeof(tensortrace!)},
+        ::Type{RT},
+        C_dC::Annotation{<:AbstractArray{TC}},
+        A_dA::Annotation{<:AbstractArray{TA}},
+        p_dp::Annotation{<:Index2Tuple},
+        q_dq::Annotation{<:Index2Tuple},
+        conjA_dconjA::Const{Bool},
+        α_dα::Annotation{Tα},
+        β_dβ::Annotation{Tβ},
+        ba_dba::Const...,
+    ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
+    p = p_dp.val
+    q = q_dq.val
+    conjA = conjA_dconjA.val
+    α = α_dα.val
+    β = β_dβ.val
+    ba = map(ba_ -> getfield(ba_, :val), ba_dba)
+
+    # dD = dα * tr(A) + α * tr(dA) + dβ * C + β * dC
+    # dC1 = dβ * C + β * dC
+    if !isa(C_dC, Const)
+        scale!(C_dC.dval, β)
+        if !isa(β_dβ, Const)
+            @. C_dC, dval += β_dβ.dval * C_dC.val
+        end
+        if !isa(α_dα, Const)
+            TensorOperations.tensortrace!(C_dC.dval, A_dA.val, p, q, conjA, α_dα.dval, One(), ba...)
+        end
+        if !isa(A_dA, Const)
+            TensorOperations.tensortrace!(C_dC.dval, A_dA.dval, p, q, conjA, α, One(), ba...)
+        end
+    end
+    # D = α * tr(A) + β * C
+    TensorOperations.tensortrace!(C_dC.val, A_dA.val, p, q, conjA, α, β, ba...)
+    return C_dC
 end
 
 end

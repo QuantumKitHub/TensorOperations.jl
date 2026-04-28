@@ -4,7 +4,6 @@ using Test
 using Mooncake
 using Random
 
-mode = Mooncake.ReverseMode
 rng = Random.default_rng()
 is_primitive = false
 
@@ -25,11 +24,11 @@ is_primitive = false
         A = rand(T₁, (2, 3, 4, 2, 5))
         C = rand(T₂, size.(Ref(A), p[1]))
 
-        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β; atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β; atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β; atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β; atol, rtol, is_primitive)
 
-        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol, is_primitive)
     end
 end
 
@@ -48,11 +47,11 @@ end
     A = rand(T₁, (2, 3, 4, 2, 1))
     C = rand(T₂, size.(Ref(A), pA[1]))
     @testset for α in (Zero(), rand(T)), β in (Zero(), rand(T))
-        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β; atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β; atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β; atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β; atol, rtol, is_primitive)
 
-        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β, StridedBLAS(); atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β, StridedNative(); atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, false, α, β, StridedBLAS(); atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensoradd!, C, A, pA, true, α, β, StridedNative(); atol, rtol, is_primitive)
     end
 end
 
@@ -77,20 +76,20 @@ end
     C = rand(T, (5, 2, 3, 3))
 
     @testset for α in (Zero(), randn(T)), β in (Zero(), randn(T))
-        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β; atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β; atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, false, B, pB, true, pAB, α, β; atol, rtol, mode, is_primitive)
-        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, true, B, pB, true, pAB, α, β; atol, rtol, mode, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β; atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β; atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, false, B, pB, true, pAB, α, β; atol, rtol, is_primitive)
+        Mooncake.TestUtils.test_rule(rng, tensorcontract!, C, A, pA, true, B, pB, true, pAB, α, β; atol, rtol, is_primitive)
 
         Mooncake.TestUtils.test_rule(
             rng,
             tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β, StridedBLAS();
-            atol, rtol, mode, is_primitive
+            atol, rtol, is_primitive
         )
         Mooncake.TestUtils.test_rule(
             rng,
             tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β, StridedNative();
-            atol, rtol, mode, is_primitive
+            atol, rtol, is_primitive
         )
     end
 end
@@ -101,5 +100,5 @@ end
 
     C = Array{T, 0}(undef, ())
     fill!(C, rand(T))
-    Mooncake.TestUtils.test_rule(rng, tensorscalar, C; atol, rtol, mode, is_primitive)
+    Mooncake.TestUtils.test_rule(rng, tensorscalar, C; atol, rtol, is_primitive)
 end
