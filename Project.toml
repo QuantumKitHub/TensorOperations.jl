@@ -27,9 +27,6 @@ JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
-[sources]
-Strided = {rev = "ld-gpu", url = "https://github.com/QuantumKitHub/Strided.jl/"}
-
 [extensions]
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsCUDAExt = "CUDA"
@@ -59,7 +56,7 @@ PrecompileTools = "1.1"
 Preferences = "1.4"
 PtrArrays = "1.2"
 Random = "1"
-Strided = "2.2"
+Strided = "2.5"
 StridedViews = "0.3, 0.4, ~0.4.2"
 Test = "1"
 TupleTools = "1.6"
