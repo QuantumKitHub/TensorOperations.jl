@@ -96,7 +96,7 @@ function Mooncake.frule!!(
     # ΔC′ = ΔC*β + C*Δβ + A*B*Δα + ΔA*B*α + A*ΔB*α
     scale!(dC, β)
     if !isa(dβ, Mooncake.NoTangent)
-        @. dC += dβ * C
+        add!(dC, C, dβ)
     end
     if !isa(dα, Mooncake.NoTangent)
         tensorcontract!(dC, A, pA, conjA, B, pB, conjB, pAB, dα, One(), ba...)
@@ -163,7 +163,7 @@ function Mooncake.frule!!(
     # dC′ = β dC + dβ * C
     scale!(dC, β)
     if !isa(dβ, Mooncake.NoTangent)
-        @. dC += dβ * C
+        add!(dC, C, dβ)
     end
     TensorOperations.tensoradd!(dC, dA, pA, conjA, α, One(), ba...)
     if !isa(dα, Mooncake.NoTangent)
@@ -230,7 +230,7 @@ function Mooncake.frule!!(
     # dC1 = dβ * C + β * dC
     scale!(dC, β)
     if !isa(dβ, Mooncake.NoTangent)
-        @. dC += dβ * C
+        add!(dC, C, dβ)
     end
     if !isa(dα, Mooncake.NoTangent)
         TensorOperations.tensortrace!(dC, A, p, q, conjA, dα, One(), ba...)

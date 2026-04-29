@@ -151,7 +151,7 @@ function EnzymeRules.forward(
     if !isa(C_dC, Const)
         scale!(C_dC.dval, β)
         if !isa(β_dβ, Const)
-            @. C_dC.dval += β_dβ.dval * C_dC.val
+            add!(C_dC.dval, C_dC.val, β_dβ.dval)
         end
         if !isa(α_dα, Const)
             tensorcontract!(C_dC.dval, A_dA.val, pA, conjA, B_dB.val, pB, conjB, pAB, α_dα.dval, One(), ba...)
@@ -265,7 +265,7 @@ function EnzymeRules.forward(
     if !isa(C_dC, Const)
         scale!(C_dC.dval, β)
         if !isa(β_dβ, Const)
-            @. C_dC.dval += β_dβ.dval * C_dC.val
+            add!(C_dC.dval, C_dC.val, β_dβ.dval)
         end
         if !isa(A_dA, Const)
             TensorOperations.tensoradd!(C_dC.dval, A_dA.dval, pA, conjA, α, One(), ba...)
@@ -378,7 +378,7 @@ function EnzymeRules.forward(
     if !isa(C_dC, Const)
         scale!(C_dC.dval, β)
         if !isa(β_dβ, Const)
-            @. C_dC, dval += β_dβ.dval * C_dC.val
+            add!(C_dC.dval, C_dC.val, β_dβ.dval)
         end
         if !isa(α_dα, Const)
             TensorOperations.tensortrace!(C_dC.dval, A_dA.val, p, q, conjA, α_dα.dval, One(), ba...)
