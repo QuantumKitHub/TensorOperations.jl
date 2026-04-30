@@ -5,7 +5,7 @@ using Adapt
 using TupleTools
 using JLArrays
 using VectorInterface
-using CUDA
+using CUDACore
 
 test_result(a::AbstractArray, b::AbstractArray; kwargs...) =
     isapprox(collect(a), collect(b); kwargs...)
@@ -23,7 +23,7 @@ end
 # types to test for
 ATs = []
 !is_buildkite && push!(ATs, JLArray)
-CUDA.functional() && push!(ATs, CuArray)
+CUDACore.functional() && push!(ATs, CuArray)
 
 backends = [StridedBLAS(), StridedNative()]
 
