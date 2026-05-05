@@ -145,57 +145,6 @@ function _custrided(
 end
 
 #-------------------------------------------------------------------------------------------
-# Allocator
-#-------------------------------------------------------------------------------------------
-function TO.CUDAAllocator()
-    Mout = CUDACore.UnifiedMemory
-    Min = CUDACore.default_memory
-    Mtemp = CUDACore.default_memory
-    return CUDAAllocator{Mout, Min, Mtemp}()
-end
-
-function TO.tensoralloc_add(
-        TC, A::AbstractArray, pA::Index2Tuple, conjA::Bool,
-        istemp::Val, allocator::CUDAAllocator
-    )
-    ttype = CuArray{TC, TO.numind(pA)}
-    structure = TO.tensoradd_structure(A, pA, conjA)
-    return TO.tensoralloc(ttype, structure, istemp, allocator)::ttype
-end
-
-function TO.tensoralloc_contract(
-        TC,
-        A::AbstractArray, pA::Index2Tuple, conjA::Bool,
-        B::AbstractArray, pB::Index2Tuple, conjB::Bool,
-        pAB::Index2Tuple,
-        istemp::Val, allocator::CUDAAllocator
-    )
-    ttype = CuArray{TC, TO.numind(pAB)}
-    structure = TO.tensorcontract_structure(A, pA, conjA, B, pB, conjB, pAB)
-    return tensoralloc(ttype, structure, istemp, allocator)::ttype
-end
-
-# Overwrite tensoradd_type
-function TO.tensoradd_type(TC, A::CuArray, pA::Index2Tuple, conjA::Bool)
-    return CuArray{TC, sum(length.(pA))}
-end
-
-# NOTE: the general implementation in the `DefaultAllocator` case works just fine, without
-# selecting an explicit memory model
-function TO.tensoralloc(
-        ::Type{CuArray{T, N}}, structure,
-        ::Val{istemp}, allocator::CUDAAllocator{Mout, Min, Mtemp}
-    ) where {T, N, istemp, Mout, Min, Mtemp}
-    M = istemp ? Mtemp : Mout
-    return CuArray{T, N, M}(undef, structure)
-end
-
-function TO.tensorfree!(C::CuArray, ::CUDAAllocator)
-    CUDACore.unsafe_free!(C)
-    return nothing
-end
-
-#-------------------------------------------------------------------------------------------
 # Implementation
 #-------------------------------------------------------------------------------------------
 function TO.tensorscalar(C::CuStridedView)
