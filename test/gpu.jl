@@ -5,7 +5,7 @@ using Adapt
 using TupleTools
 using JLArrays
 using VectorInterface
-using CUDACore
+using CUDACore, AMDGPU
 
 test_result(a::AbstractArray, b::AbstractArray; kwargs...) =
     isapprox(collect(a), collect(b); kwargs...)
@@ -24,6 +24,7 @@ end
 ATs = []
 !is_buildkite && push!(ATs, JLArray)
 CUDACore.functional() && push!(ATs, CuArray)
+AMDGPU.functional() && push!(ATs, ROCArray)
 
 backends = [StridedBLAS(), StridedNative()]
 
