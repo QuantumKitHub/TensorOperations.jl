@@ -31,6 +31,13 @@ parameters `Min`, `Mout`, `Mtemp` can be any of the CUDA.jl memory types, i.e.
 struct CUDAAllocator{Mout, Min, Mtemp} end
 
 """
+    AMDAllocator()
+
+Allocator that uses the AMD memory manager and will thus allocate `ROCArray` instances.
+"""
+struct AMDAllocator end
+
+"""
     ManualAllocator()
 
 Allocator that bypasses Julia's memory management for temporary tensors by leveraging `Libc.malloc`
