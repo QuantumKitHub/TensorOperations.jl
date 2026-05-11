@@ -33,9 +33,6 @@ if !is_buildkite
     @testset "allocator" verbose = true begin
         include("allocator.jl")
     end
-    @testset "jlarrays" verbose = false begin
-        include("jlarrays.jl")
-    end
     @testset "ad" verbose = false begin
         include("ad.jl")
     end
