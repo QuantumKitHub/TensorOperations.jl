@@ -164,7 +164,15 @@ function EnzymeRules.forward(
         end
     end
     TensorOperations.tensorcontract!(C_dC.val, A_dA.val, pA, conjA, B_dB.val, pB, conjB, pAB, α, β, ba...)
-    return C_dC
+    if EnzymeRules.needs_primal(config) && EnzymeRules.needs_shadow(config)
+        return C_dC
+    elseif EnzymeRules.needs_primal(config)
+        return C_dC.val
+    elseif EnzymeRules.needs_shadow(config)
+        return C_dC.dval
+    else
+        return nothing
+    end
 end
 
 function EnzymeRules.augmented_primal(
@@ -275,7 +283,15 @@ function EnzymeRules.forward(
         end
     end
     TensorOperations.tensoradd!(C_dC.val, A_dA.val, pA, conjA, α, β, ba...)
-    return C_dC
+    if EnzymeRules.needs_primal(config) && EnzymeRules.needs_shadow(config)
+        return C_dC
+    elseif EnzymeRules.needs_primal(config)
+        return C_dC.val
+    elseif EnzymeRules.needs_shadow(config)
+        return C_dC.dval
+    else
+        return nothing
+    end
 end
 
 function EnzymeRules.augmented_primal(
@@ -389,7 +405,15 @@ function EnzymeRules.forward(
     end
     # D = α * tr(A) + β * C
     TensorOperations.tensortrace!(C_dC.val, A_dA.val, p, q, conjA, α, β, ba...)
-    return C_dC
+    if EnzymeRules.needs_primal(config) && EnzymeRules.needs_shadow(config)
+        return C_dC
+    elseif EnzymeRules.needs_primal(config)
+        return C_dC.val
+    elseif EnzymeRules.needs_shadow(config)
+        return C_dC.dval
+    else
+        return nothing
+    end
 end
 
 end
