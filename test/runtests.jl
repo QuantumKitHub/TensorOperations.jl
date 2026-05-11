@@ -33,19 +33,19 @@ if !is_buildkite
     @testset "allocator" verbose = true begin
         include("allocator.jl")
     end
+    @testset "jlarrays" verbose = false begin
+        include("jlarrays.jl")
+    end
     @testset "ad" verbose = false begin
         include("ad.jl")
     end
     @testset "mooncake" verbose = false begin
         include("mooncake.jl")
     end
-    # mystery segfault on 1.10 for now
-    @static if VERSION >= v"1.11.0"
-        is_apple_ci = Sys.isapple() && get(ENV, "CI", "false") == "true"
-        if !is_apple_ci
-            @testset "enzyme" verbose = false begin
-                include("enzyme.jl")
-            end
+    is_apple_ci = Sys.isapple() && get(ENV, "CI", "false") == "true"
+    if !is_apple_ci
+        @testset "enzyme" verbose = false begin
+            include("enzyme.jl")
         end
     end
 end
