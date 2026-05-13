@@ -17,6 +17,7 @@ TupleTools = "9d95972d-f1c8-5527-a6e0-b4b365fa01f6"
 VectorInterface = "409d34a3-91d5-4945-b6ec-7529ddf182d8"
 
 [weakdeps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
 Bumper = "8ce10254-0962-460f-a3d8-1f77fea1446e"
 ChainRulesCore = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
@@ -26,6 +27,7 @@ JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 
 [extensions]
+TensorOperationsAMDGPUExt = "AMDGPU"
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsMooncakeExt = "Mooncake"
@@ -35,6 +37,7 @@ TensorOperationscuTENSORExt = "cuTENSOR"
 TensorOperationsJLArraysExt = "JLArrays"
 
 [compat]
+AMDGPU = "2"
 Aqua = "0.6, 0.7, 0.8"
 Adapt = "4"
 Bumper = "0.6, 0.7"
@@ -82,4 +85,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU"]
+
+[sources]
+Strided = {url = "https://github.com/QuantumKitHub/Strided.jl/", rev = "ksh/gemm"}
