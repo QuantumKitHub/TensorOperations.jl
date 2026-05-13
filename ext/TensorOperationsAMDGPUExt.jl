@@ -8,7 +8,7 @@ using TensorOperations: TensorOperations as TO
 # Allocator
 #-------------------------------------------------------------------------------------------
 
-TO.tensoradd_type(TC, A::AnyRocArray, pA::Index2Tuple, conjA::Bool) =
+TO.tensoradd_type(TC, A::AnyROCArray, pA::Index2Tuple, conjA::Bool) =
     ROCArray{TC, TO.numind(pA)}
 
 function TO.tensoralloc_add(
@@ -37,7 +37,7 @@ end
 function TO.tensoralloc(
         ::Type{<:ROCArray{T, N}}, structure,
         ::Val{istemp}, allocator::TO.AMDAllocator
-    ) where {T, N}
+    ) where {T, N, istemp}
     return ROCArray{T, N}(undef, structure)
 end
 
