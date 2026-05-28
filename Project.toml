@@ -1,6 +1,6 @@
 name = "TensorOperations"
 uuid = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
-version = "5.6.0"
+version = "5.6.1"
 authors = ["Lukas Devos <lukas.devos@ugent.be>", "Maarten Van Damme <maartenvd1994@gmail.com>", "Jutho Haegeman <jutho.haegeman@ugent.be>"]
 
 [deps]
@@ -58,7 +58,7 @@ Strided = "2.5"
 StridedViews = "0.5"
 Test = "1"
 TupleTools = "1.6"
-VectorInterface = "0.4.1,0.5"
+VectorInterface = "0.4.1, 0.5, 0.6"
 cuRAND = "6"
 cuTENSOR = "6"
 julia = "1.10"
