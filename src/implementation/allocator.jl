@@ -70,6 +70,15 @@ mutable struct BufferAllocator{Storage}
     end
 end
 
+"""
+    ReactantAllocator{IsTraced}
+
+Allocator for Reactant-backed arrays. If `IsTraced=true`, it is supposed that Reactant is
+tracing the code and thus, it will return a `TracedRArray`.Otherwise, it will allocate a 
+`ConcreteRArray`.
+"""
+struct ReactantAllocator{IsTraced} end
+
 const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
 BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
 
