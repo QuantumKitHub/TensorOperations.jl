@@ -78,3 +78,12 @@ const StridedBackend = Union{StridedNative, StridedBLAS}
 Backend for tensor operations that is based on the NVIDIA cuTENSOR library.
 """
 struct cuTENSORBackend <: AbstractBackend end
+
+# Reactant backend
+#-----------------
+"""
+    ReactantBackend
+
+Backend for tensor operations that works on top of Reactant.jl library.
+"""
+struct ReactantBackend <: AbstractBackend end
