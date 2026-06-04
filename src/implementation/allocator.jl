@@ -73,8 +73,9 @@ end
 """
     ReactantAllocator{IsTraced}
 
-Allocator for Reactant-backed arrays. If `IsTraced=true`, it is supposed that Reactant is
-tracing the code and thus, it will return a `TracedRArray`.Otherwise, it will allocate a 
+Allocator for [Reactant](https://github.com/EnzymeAD/Reactant.jl)-backed arrays.
+If `IsTraced=true`, it is supposed that [Reactant](https://github.com/EnzymeAD/Reactant.jl)
+is tracing the code and thus, it will return a `TracedRArray`. Otherwise, it will allocate a 
 `ConcreteRArray`.
 """
 struct ReactantAllocator{IsTraced} end

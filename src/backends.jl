@@ -84,6 +84,6 @@ struct cuTENSORBackend <: AbstractBackend end
 """
     ReactantBackend
 
-Backend for tensor operations that works on top of Reactant.jl library.
+Backend for tensor operations that work on top of [Reactant.jl](https://github.com/EnzymeAD/Reactant.jl) library.
 """
 struct ReactantBackend <: AbstractBackend end
