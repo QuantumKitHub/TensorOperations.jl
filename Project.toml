@@ -57,7 +57,7 @@ PrecompileTools = "1.1"
 Preferences = "1.4"
 PtrArrays = "1.2"
 Random = "1"
-Strided = "2.5"
+Strided = "2.6"
 StridedViews = "0.5"
 Test = "1"
 TupleTools = "1.6"
@@ -86,6 +86,3 @@ cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
 test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU"]
-
-[sources]
-Strided = {url = "https://github.com/QuantumKitHub/Strided.jl/", rev = "ksh/gemm"}
