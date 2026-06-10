@@ -3,7 +3,11 @@ module TensorOperationsBumperExt
 using TensorOperations
 using Bumper
 
-const BumperBuffer = Union{SlabBuffer, AllocBuffer}
+const BumperBuffer = @static if isdefined(Bumper, :ResizeBuffer)
+    Union{SlabBuffer, AllocBuffer, Bumper.ResizeBuffer}
+else
+    Union{SlabBuffer, AllocBuffer}
+end
 
 function TensorOperations.tensoralloc(
         ::Type{A}, structure, ::Val{istemp}, buf::BumperBuffer

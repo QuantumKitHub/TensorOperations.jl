@@ -78,4 +78,19 @@ using Bumper
     @test E5 isa T
     @test HRAA5 ≈ HRAA1
     @test E5 ≈ E1
+
+    # resizebuffer (Bumper >= 0.7.2)
+    @static if isdefined(Bumper, :ResizeBuffer)
+        resizebuf = Bumper.ResizeBuffer()
+        @no_escape resizebuf @tensor allocator = resizebuf begin
+            HRAA6[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] * ρᵣ[c', c] *
+                H[s1, s2, t1, t2]
+            E6 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] * H[t, t', s, s'] *
+                conj(A1[a', t, b']) * conj(A2[b', t', c'])
+        end
+        @test HRAA6 isa Array{T, 4}
+        @test E6 isa T
+        @test HRAA6 ≈ HRAA1
+        @test E6 ≈ E1
+    end
 end
