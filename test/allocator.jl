@@ -99,4 +99,25 @@ using LinearAlgebra
         tensoralloc(Array{UInt8, 2}, (L + 1, 1), Val(true), buffer)
         @test length(buffer) > L
     end
+
+    @testset "ncon does not leak buffer space" begin
+        buffer = BufferAllocator()
+        A = randn(5, 5)
+        B = randn(5, 5)
+        C = randn(5, 5)
+        # chain contraction A*B*C -> at least one intermediate tensor allocated as temp
+        R = ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+        @test R ≈ A * B * C
+        # offset must return to 0: intermediates were reclaimed via allocator_reset!
+        @test buffer.offset == 0
+        @test isempty(buffer)
+
+        # repeated calls must not grow the high-water mark beyond a single call's needs
+        max1 = buffer.max_offset
+        for _ in 1:5
+            ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+        end
+        @test buffer.offset == 0
+        @test buffer.max_offset == max1
+    end
 end
