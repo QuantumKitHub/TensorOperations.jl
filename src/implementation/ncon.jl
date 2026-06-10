@@ -42,13 +42,16 @@ function ncon(
     tensors, network = resolve_traces(tensors, network)
     tree = order === nothing ? ncontree(network) : indexordertree(network, order)
 
+    allocator = haskey(kwargs, :allocator) ? kwargs[:allocator] : DefaultAllocator()
+    cp = allocator_checkpoint!(allocator)
+
     A, IA, conjA = contracttree(tensors, network, conjlist, tree[1]; kwargs...)
     B, IB, conjB = contracttree(tensors, network, conjlist, tree[2]; kwargs...)
     IC = tuple(output′...)
     C = tensorcontract(IC, A, IA, conjA, B, IB, conjB; kwargs...)
-    allocator = haskey(kwargs, :allocator) ? kwargs[:allocator] : DefaultAllocator()
     tree[1] isa Int || tensorfree!(A, allocator)
     tree[2] isa Int || tensorfree!(B, allocator)
+    allocator_reset!(allocator, cp)
     return length(IC) == 0 ? tensorscalar(C) : C
 end
 
