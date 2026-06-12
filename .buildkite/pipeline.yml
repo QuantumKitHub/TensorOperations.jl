@@ -12,8 +12,7 @@ steps:
             - src
             - ext
     agents:
-      queue: "juliagpu"
-      cuda: "*"
+      queue: "cuda"
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 30
 
@@ -27,7 +26,6 @@ steps:
             - src
             - ext
     agents:
-      queue: "juliagpu"
-      cuda: "*"
+      queue: "cuda"
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 30
