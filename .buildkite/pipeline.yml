@@ -29,6 +29,7 @@ steps:
       queue: "cuda"
     if: build.message !~ /\[skip tests\]/
     timeout_in_minutes: 30
+
   - label: "Julia v1 -- AMDGPU"
     plugins:
       - JuliaCI/julia#v1:
