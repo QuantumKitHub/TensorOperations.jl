@@ -27,16 +27,14 @@ function TensorOperations._butensor(src, ex...)
     buf_sym = gensym("buffer")
 
     # TODO: there is no check for doubled tensor kwargs
-    newex = quote
-        $buf_sym = $(Expr(:call, GlobalRef(Bumper, :default_buffer)))
-        $(
-            Expr(
-                :macrocall, GlobalRef(TensorOperations, Symbol("@tensor")),
-                src, :(allocator = $buf_sym), ex...
-            )
+    return Expr(
+        :block,
+        Expr(:(=), buf_sym, Expr(:call, GlobalRef(Bumper, :default_buffer))),
+        Expr(
+            :macrocall, GlobalRef(TensorOperations, Symbol("@tensor")),
+            src, :(allocator = $buf_sym), ex...
         )
-    end
-    return Base.remove_linenums!(newex)
+    )
 end
 
 end

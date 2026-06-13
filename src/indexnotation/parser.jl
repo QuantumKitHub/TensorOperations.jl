@@ -13,7 +13,7 @@ mutable struct TensorParser
         contractiontreebuilder = defaulttreebuilder
         contractiontreesorter = defaulttreesorter
         contractioncostcheck = nothing
-        postprocessors = [_flatten, removelinenumbernode, addtensoroperations]
+        postprocessors = [_flatten, addtensoroperations]
         return new(
             preprocessors,
             contractiontreebuilder, contractiontreesorter, contractioncostcheck,
@@ -35,6 +35,7 @@ function (parser::TensorParser)(ex::Expr)
     for p in parser.postprocessors
         ex = p(ex)::Expr
     end
+    ex = removeinternallinenumbernodes(ex)::Expr
     return ex
 end
 
