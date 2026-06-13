@@ -30,10 +30,47 @@ function _flatten(ex)
     end
 end
 
+# package source directory (with trailing separator), used to recognize `LineNumberNode`s that
+# point into the parser's own `quote` blocks rather than into user code.
+const _PARSER_SRCDIR = joinpath(dirname(@__DIR__), "")
+
+_isinternallinenumber(@nospecialize(x)) =
+    x isa LineNumberNode && startswith(String(x.file), _PARSER_SRCDIR)
+
+"""
+    removeinternallinenumbernodes(ex)
+
+Remove all `LineNumberNode`s that point into the TensorOperations source tree, i.e. the ones
+introduced by the parser's own `quote` blocks. `LineNumberNode`s originating from user code are
+kept, so that the generated code remains attributable to the user's source lines (e.g. for code
+coverage).
+"""
+function removeinternallinenumbernodes(ex)
+    if isexpr(ex, :block)
+        # within a block, `LineNumberNode`s are statement markers: drop the internal ones
+        args = Any[
+            removeinternallinenumbernodes(e) for e in ex.args
+                if !_isinternallinenumber(e)
+        ]
+        return Expr(:block, args...)
+    elseif isa(ex, Expr)
+        # elsewhere (e.g. the mandatory 2nd argument of a `:macrocall`) a `LineNumberNode` may
+        # be structurally required, so keep all positions and only recurse into nested blocks
+        return Expr(ex.head, Any[removeinternallinenumbernodes(e) for e in ex.args]...)
+    else
+        return ex
+    end
+end
+
 """
     removelinenumbernode(ex)
 
 Remove all `LineNumberNode`s from an expression.
+
+!!! note
+    Kept for backwards compatibility. The parser now uses
+    [`removeinternallinenumbernodes`](@ref), which preserves user `LineNumberNode`s so that
+    generated code stays attributable to the user's source lines (e.g. for code coverage).
 """
 function removelinenumbernode(ex)
     if isexpr(ex, :block)

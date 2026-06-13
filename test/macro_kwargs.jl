@@ -92,6 +92,56 @@ end
     end
 end
 
+# https://github.com/QuantumKitHub/TensorOperations.jl/issues/280: the generated code must keep
+# the user's `LineNumberNode`s (so `@tensor` lines show up in code coverage) while dropping the
+# parser's own internal ones (which would otherwise pollute the package's coverage).
+@testset "line numbers (issue #280)" begin
+    collectlinenumbernodes(ex, acc = LineNumberNode[]) =
+        (
+        ex isa LineNumberNode ? push!(acc, ex) :
+            ex isa Expr && foreach(e -> collectlinenumbernodes(e, acc), ex.args); acc
+    )
+    pkgsrc = dirname(pathof(TensorOperations))
+    pkglnns(lnns) = filter(l -> startswith(String(l.file), pkgsrc), lnns)
+    userlines(lnns) = sort!(unique!([l.line for l in lnns if String(l.file) == @__FILE__]))
+
+    @testset "no internal LineNumberNodes leak into generated code" begin
+        # covers the scalar, dst-reuse and checkpoint `quote` paths in the parser
+        exprs = [
+            @macroexpand(@tensor T[a, b] := A[a, c] * B[c, b]),
+            @macroexpand(@tensor R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, f] * F[f, b]),
+            @macroexpand(@tensor s = X[a, b] * Y[a, b]),
+            @macroexpand(@tensoropt R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, b]),
+            @macroexpand(@tensor allocator = alloc R[a, b] := A[a, c] * B[c, d] * C[d, b]),
+            @macroexpand(@tensor costcheck = warn R[a, b] := A[a, c] * B[c, d] * C[d, b]),
+            @macroexpand(@tensor contractcheck = true R[a, b] := A[a, c] * B[c, b]),
+        ]
+        for ex in exprs
+            @test isempty(pkglnns(collectlinenumbernodes(ex)))
+        end
+    end
+
+    @testset "user LineNumberNodes are preserved per statement" begin
+        # multi-statement block, including a nested contraction whose intermediate is reused
+        block = @macroexpand @tensor begin
+            T[a, e] := A[a, c] * B[c, d] * C[d, e]
+            D[a, b] := T[a, e] * E[e, b]
+            s = D[a, b] * F[a, b]
+        end
+        lnns = collectlinenumbernodes(block)
+        @test isempty(pkglnns(lnns))
+        @test length(userlines(lnns)) >= 3  # one distinct user line per statement
+
+        optblock = @macroexpand @tensoropt begin
+            T[a, e] := A[a, c] * B[c, d] * C[d, e]
+            D[a, b] := T[a, e] * E[e, b]
+        end
+        optlnns = collectlinenumbernodes(optblock)
+        @test isempty(pkglnns(optlnns))
+        @test length(userlines(optlnns)) >= 2
+    end
+end
+
 @testset "opt" begin
     A = randn(5, 5, 5, 5)
     B = randn(5, 5, 5)
