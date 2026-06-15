@@ -20,7 +20,7 @@ function tensoradd!(
     )
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensoradd!(SV(C), conj(SV(A)), pA, α, β, backend, allocator)
+        stridedtensoradd!(SV(C), conj!(SV(A)), pA, α, β, backend, allocator)
     else
         stridedtensoradd!(SV(C), SV(A), pA, α, β, backend, allocator)
     end
@@ -35,7 +35,7 @@ function tensortrace!(
     )
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensortrace!(SV(C), conj(SV(A)), p, q, α, β, backend, allocator)
+        stridedtensortrace!(SV(C), conj!(SV(A)), p, q, α, β, backend, allocator)
     else
         stridedtensortrace!(SV(C), SV(A), p, q, α, β, backend, allocator)
     end
