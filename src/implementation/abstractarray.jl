@@ -11,7 +11,7 @@ function checkcontractible(
         B::AbstractArray, iB, conjB::Bool, label
     )
     size(A, iA) == size(B, iB) ||
-        throw(DimensionMismatch("Nonmatching dimensions for $label: $(size(A, iA)) != $(size(B, iB))"))
+        throw(DimensionMismatch(lazy"Nonmatching dimensions for $label: $(size(A, iA)) != $(size(B, iB))"))
     return nothing
 end
 
@@ -65,7 +65,7 @@ Check that `C` has `numind(pC)` indices and that `pC` constitutes a valid permut
 """
 function argcheck_index2tuple(C::AbstractArray, pC::Index2Tuple)
     return ndims(C) == numind(pC) && isperm(linearize(pC)) ||
-        throw(IndexError("invalid permutation of length $(ndims(C)): $pC"))
+        throw(IndexError(lazy"invalid permutation of length $(ndims(C)): $pC"))
 end
 
 """
@@ -89,7 +89,7 @@ function argcheck_tensortrace(
         C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple
     )
     ndims(C) == numind(p) ||
-        throw(IndexError("invalid selection of length $(ndims(C)): $p"))
+        throw(IndexError(lazy"invalid selection of length $(ndims(C)): $p"))
     2 * numin(q) == 2 * numout(q) == ndims(A) - ndims(C) ||
         throw(IndexError("invalid number of trace dimensions"))
     argcheck_index2tuple(A, ((p[1]..., q[1]...), (p[2]..., q[2]...)))
