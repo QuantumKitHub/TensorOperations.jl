@@ -63,9 +63,11 @@ _stridedordiag(A::Diagonal) = A
 
 Check that `C` has `numind(pC)` indices and that `pC` constitutes a valid permutation.
 """
-function argcheck_index2tuple(C::AbstractArray, pC::Index2Tuple)
-    return ndims(C) == numind(pC) && isperm(linearize(pC)) ||
+argcheck_index2tuple(C::AbstractArray, pC::Index2Tuple) = argcheck_indextuple(C, linearize(pC))
+function argcheck_indextuple(C::AbstractArray, pC::IndexTuple)
+    ndims(C) == numind(pC) && isperm(pC) ||
         throw(IndexError(lazy"invalid permutation of length $(ndims(C)): $pC"))
+    return nothing
 end
 
 """
@@ -73,9 +75,11 @@ end
 
 Check that `C` and `A` have `numind(pA)` indices and that `pA` constitutes a valid permutation.
 """
-function argcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::Index2Tuple)
+argcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::Index2Tuple) =
+    argcheck_tensoradd(C, A, linearize(pA))
+function argcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::IndexTuple)
     ndims(C) == ndims(A) || throw(IndexError("non-matching number of dimensions"))
-    argcheck_index2tuple(A, pA)
+    argcheck_indextuple(A, pA)
     return nothing
 end
 
@@ -85,14 +89,16 @@ end
 Check that the partial trace of `A` over indices `q` and with permutation of the remaining
 indices `p` is compatible with output `C`.
 """
+argcheck_tensortrace(C::AbstractArray, A::AbstractArray, p::IndexTuple, q::Index2Tuple) =
+    argcheck_tensortrace(C, A, linearize(p), q)
 function argcheck_tensortrace(
-        C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple
+        C::AbstractArray, A::AbstractArray, p::IndexTuple, q::Index2Tuple
     )
     ndims(C) == numind(p) ||
         throw(IndexError(lazy"invalid selection of length $(ndims(C)): $p"))
     2 * numin(q) == 2 * numout(q) == ndims(A) - ndims(C) ||
         throw(IndexError("invalid number of trace dimensions"))
-    argcheck_index2tuple(A, ((p[1]..., q[1]...), (p[2]..., q[2]...)))
+    argcheck_indextuple(A, (p[1]..., q[1]..., p[2]..., q[2]...))
     return nothing
 end
 
@@ -123,27 +129,28 @@ end
 
 Check that `C` and `A` have compatible sizes for the addition specified by `pA`.
 """
-function dimcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::Index2Tuple)
+dimcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::Index2Tuple) = dimcheck_tensoradd(C, A, linearize(pA))
+function dimcheck_tensoradd(C::AbstractArray, A::AbstractArray, pA::IndexTuple)
     szA, szC = size(A), size(C)
-    TupleTools.getindices(szA, linearize(pA)) == szC ||
+    TupleTools.getindices(szA, pA) == szC ||
         throw(DimensionMismatch("non-matching sizes in uncontracted dimensions"))
     return nothing
 end
 
 """
-    dimcheck_tensorcontract(C::AbstractArray, A::AbstractArray,
-                            p::Index2Tuple, q::Index2Tuple)
+    dimcheck_tensorcontract(C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple)
 
-Check that `C` and `A` have compatible sizes for the trace and addition specified by `p` and
-`q`.
+Check that `C` and `A` have compatible sizes for the trace and addition specified by `p` and `q`.
 """
+dimcheck_tensortrace(C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple) =
+    dimcheck_tensortrace(C, A, linearize(p), q)
 function dimcheck_tensortrace(
         C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple
     )
     szA, szC = size(A), size(C)
     TupleTools.getindices(szA, q[1]) == TupleTools.getindices(szA, q[2]) ||
         throw(DimensionMismatch("non-matching sizes in traced dimensions"))
-    TupleTools.getindices(szA, linearize(p)) == szC ||
+    TupleTools.getindices(szA, p) == szC ||
         throw(DimensionMismatch("non-matching sizes in uncontracted dimensions"))
     return nothing
 end
