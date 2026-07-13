@@ -18,12 +18,20 @@ function tensoradd!(
         α::Number, β::Number,
         backend::StridedBackend, allocator = DefaultAllocator()
     )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = eltype(C)(α)
+    β′ = eltype(C)(β)
+    p = linearize(pA)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensoradd!(SV(C), conj(SV(A)), pA, α, β, backend, allocator)
+        stridedtensoradd!(SV(C), conj(SV(A)), p, α′, β′)
     else
-        stridedtensoradd!(SV(C), SV(A), pA, α, β, backend, allocator)
+        stridedtensoradd!(SV(C), SV(A), p, α′, β′)
     end
+
     return C
 end
 
@@ -83,19 +91,18 @@ end
 (s::Scaler)(x, y) = scale(x * y, s.α)
 
 function stridedtensoradd!(
-        C::StridedView,
-        A::StridedView, pA::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedBackend, allocator = DefaultAllocator()
+        C::StridedView, A::StridedView, pA::IndexTuple, α::Number, β::Number,
     )
     argcheck_tensoradd(C, A, pA)
     dimcheck_tensoradd(C, A, pA)
-    if !istrivialpermutation(pA) && Base.mightalias(C, A)
+    !istrivialpermutation(pA) && Base.mightalias(C, A) &&
         throw(ArgumentError("output tensor must not be aliased with input tensor"))
+    Ap = permutedims(A, pA)
+    if iszero(β)
+        Strided._mapreducedim!(Scaler(α), nothing, nothing, size(C), (C, Ap))
+    else
+        Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), size(C), (C, Ap))
     end
-
-    A′ = permutedims(A, linearize(pA))
-    Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), size(C), (C, A′))
     return C
 end
 
