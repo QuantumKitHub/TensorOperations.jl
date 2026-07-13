@@ -41,12 +41,20 @@ function tensortrace!(
         α::Number, β::Number,
         backend::StridedBackend, allocator = DefaultAllocator()
     )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = eltype(C)(α)
+    β′ = eltype(C)(β)
+    p′ = linearize(p)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensortrace!(SV(C), conj(SV(A)), p, q, α, β, backend, allocator)
+        stridedtensortrace!(SV(C), conj(SV(A)), p′, q, α′, β′)
     else
-        stridedtensortrace!(SV(C), SV(A), p, q, α, β, backend, allocator)
+        stridedtensortrace!(SV(C), SV(A), p′, q, α′, β′)
     end
+
     return C
 end
 
@@ -107,23 +115,18 @@ function stridedtensoradd!(
 end
 
 function stridedtensortrace!(
-        C::StridedView,
-        A::StridedView, p::Index2Tuple, q::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedBackend, allocator = DefaultAllocator()
+        C::StridedView, A::StridedView, p::IndexTuple, q::Index2Tuple, α::Number, β::Number,
     )
     argcheck_tensortrace(C, A, p, q)
     dimcheck_tensortrace(C, A, p, q)
-
     Base.mightalias(C, A) &&
         throw(ArgumentError("output tensor must not be aliased with input tensor"))
-
-    sizeA = i -> size(A, i)
-    strideA = i -> stride(A, i)
-    tracesize = sizeA.(q[1])
-    newstrides = (strideA.(linearize(p))..., (strideA.(q[1]) .+ strideA.(q[2]))...)
-    newsize = (size(C)..., tracesize...)
-
+    newsize = linearize(size(C), TupleTools.getindices(size(A), q[1]))
+    stA = strides(A)
+    newstrides = linearize(
+        TupleTools.getindices(stA, p),
+        TupleTools.getindices(stA, q[1]) .+ TupleTools.getindices(stA, q[2])
+    )
     A′ = SV(A.parent, newsize, newstrides, A.offset, A.op)
     Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), newsize, (C, A′))
     return C

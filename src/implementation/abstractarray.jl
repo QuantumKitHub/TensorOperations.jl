@@ -89,7 +89,7 @@ end
 Check that the partial trace of `A` over indices `q` and with permutation of the remaining
 indices `p` is compatible with output `C`.
 """
-argcheck_tensortrace(C::AbstractArray, A::AbstractArray, p::IndexTuple, q::Index2Tuple) =
+argcheck_tensortrace(C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple) =
     argcheck_tensortrace(C, A, linearize(p), q)
 function argcheck_tensortrace(
         C::AbstractArray, A::AbstractArray, p::IndexTuple, q::Index2Tuple
@@ -98,7 +98,7 @@ function argcheck_tensortrace(
         throw(IndexError(lazy"invalid selection of length $(ndims(C)): $p"))
     2 * numin(q) == 2 * numout(q) == ndims(A) - ndims(C) ||
         throw(IndexError("invalid number of trace dimensions"))
-    argcheck_indextuple(A, (p[1]..., q[1]..., p[2]..., q[2]...))
+    argcheck_indextuple(A, (p..., q[1]..., q[2]...))
     return nothing
 end
 
@@ -145,7 +145,7 @@ Check that `C` and `A` have compatible sizes for the trace and addition specifie
 dimcheck_tensortrace(C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple) =
     dimcheck_tensortrace(C, A, linearize(p), q)
 function dimcheck_tensortrace(
-        C::AbstractArray, A::AbstractArray, p::Index2Tuple, q::Index2Tuple
+        C::AbstractArray, A::AbstractArray, p::IndexTuple, q::Index2Tuple
     )
     szA, szC = size(A), size(C)
     TupleTools.getindices(szA, q[1]) == TupleTools.getindices(szA, q[2]) ||
