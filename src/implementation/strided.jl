@@ -21,8 +21,8 @@ function tensoradd!(
     @nospecialize backend allocator
 
     # standardize input types for compilation time
-    α′ = eltype(C)(α)
-    β′ = eltype(C)(β)
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
     p = linearize(pA)
 
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
@@ -44,8 +44,8 @@ function tensortrace!(
     @nospecialize backend allocator
 
     # standardize input types for compilation time
-    α′ = eltype(C)(α)
-    β′ = eltype(C)(β)
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
     p′ = linearize(p)
 
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on

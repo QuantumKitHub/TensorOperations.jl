@@ -247,6 +247,17 @@ Obtain the type information of `C`, where `C` would be the output of
 function tensorcontract_type end
 
 """
+    standardize_scalartype(C, α::Number) -> α′
+
+Convert the scalar `α` into a standardized type suitable for combining with the output tensor `C`.
+This hook can be used to reduce the number of compiled specializations of some kernels,
+by ensuring that the scalars always arrive in a canonical type.
+"""
+standardize_scalartype(C, α::Number) = _standardize_scalartype(scalartype(C), α)
+_standardize_scalartype(::Type{T}, α::Number) where {T <: Number} = convert(T, α)
+_standardize_scalartype(::Type, α::Number) = α      # ensure polynomials and symbolic types are left alone
+
+"""
     tensoralloc(ttype, structure, [istemp=false, allocator])
 
 Allocate memory for a tensor of type `ttype` and structure `structure`. The optional third
