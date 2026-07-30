@@ -24,6 +24,9 @@ end
 
 function (parser::TensorParser)(ex::Expr)
     verifytensorexpr(ex)
+    # any `LineNumberNode` present here belongs to the user's code: record its file so that the
+    # ones synthesized further down can be told apart and removed again at the very end
+    userfiles = linenumberfiles(ex)
     for p in parser.preprocessors
         ex = p(ex)::Expr
     end
@@ -35,7 +38,8 @@ function (parser::TensorParser)(ex::Expr)
     for p in parser.postprocessors
         ex = p(ex)::Expr
     end
-    ex = removeinternallinenumbernodes(ex)::Expr
+    # this has to happen after all (possibly user-supplied) postprocessors have run
+    ex = removeinternallinenumbernodes(ex, userfiles)::Expr
     return ex
 end
 

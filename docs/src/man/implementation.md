@@ -77,12 +77,16 @@ objects.
 
 ```@docs
 TensorOperations._flatten
-TensorOperations.removelinenumbernode
 TensorOperations.addtensoroperations
 TensorOperations.insertargument
 TensorOperations.insertbackend
 TensorOperations.insertallocator
 ```
+
+Finally, after all postprocessors have run, the parser strips the `LineNumberNode`s that it
+synthesized itself, while preserving the ones that came from the user's code. As a result the
+generated code stays attributable to the lines of the original `@tensor` expression, which is
+what makes those lines show up in code coverage reports and in stacktraces.
 
 ## Analysis of contraction graphs and optimizing contraction order
 

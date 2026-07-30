@@ -7,20 +7,17 @@ end
 
 using Bumper
 @testset "@butensor preserves user line numbers (issue #280)" begin
-    # `@butensor` wraps the block in an inner `@tensor`; make sure it does not strip the user's
-    # line numbers, and does not leak TensorOperations-internal ones.
-    pkgsrc = dirname(pathof(TensorOperations))
-    lnns = LineNumberNode[]
-    collect_lnns(x) = x isa LineNumberNode ? push!(lnns, x) :
-        x isa Expr && foreach(collect_lnns, x.args)
-    collect_lnns(
-        @macroexpand @butensor begin
-            T[a, b] := X[a, c] * Y[c, b]
-            Z[a, b] := T[a, c] * W[c, b]
-        end
-    )
-    @test !any(l -> startswith(String(l.file), pkgsrc), lnns)
-    @test count(l -> String(l.file) == @__FILE__, lnns) >= 2
+    # `@butensor` wraps the block in an inner `@tensor`, so the expansion has to be recursive
+    # here to reach the code that the parser generated. This also covers the extension itself:
+    # `_butensor` must not introduce `LineNumberNode`s pointing into `ext/`.
+    firstline = @__LINE__() + 2
+    block = @macroexpand @butensor begin
+        T[a, b] := X[a, c] * Y[c, b]
+        Z[a, b] := T[a, c] * W[c, b]
+    end
+    lnns = statementlinenumbernodes(block)
+    @test all(l -> l.file === Symbol(@__FILE__), lnns)
+    @test sort!(unique(l.line for l in lnns)) == collect(firstline .+ (0:1))
 end
 
 @testset "Bumper tests with eltype $T" for T in (Float32, ComplexF64)

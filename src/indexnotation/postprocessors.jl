@@ -30,56 +30,60 @@ function _flatten(ex)
     end
 end
 
-# package source directory (with trailing separator), used to recognize `LineNumberNode`s that
-# point into the parser's own `quote` blocks rather than into user code.
-const _PARSER_SRCDIR = joinpath(dirname(@__DIR__), "")
+"""
+    linenumberfiles(ex, files = Set{Symbol}())
 
-_isinternallinenumber(@nospecialize(x)) =
-    x isa LineNumberNode && startswith(String(x.file), _PARSER_SRCDIR)
+Collect the set of files referenced by the `LineNumberNode`s in `ex`.
+
+This is used on the expression that is handed to a [`TensorParser`](@ref), before any
+processing takes place, to determine which `LineNumberNode`s belong to the user's code:
+see [`removeinternallinenumbernodes`](@ref).
+"""
+function linenumberfiles(ex, files = Set{Symbol}())
+    if ex isa LineNumberNode
+        push!(files, ex.file)
+    elseif ex isa Expr
+        foreach(e -> linenumberfiles(e, files), ex.args)
+    end
+    return files
+end
 
 """
-    removeinternallinenumbernodes(ex)
+    removeinternallinenumbernodes(ex, userfiles)
 
-Remove all `LineNumberNode`s that point into the TensorOperations source tree, i.e. the ones
-introduced by the parser's own `quote` blocks. `LineNumberNode`s originating from user code are
-kept, so that the generated code remains attributable to the user's source lines (e.g. for code
-coverage).
+Remove the `LineNumberNode`s that were synthesized by the parser, i.e. the ones whose file is
+not in `userfiles`, as obtained from [`linenumberfiles`](@ref) on the original expression.
+
+`LineNumberNode`s originating from user code are kept, so that the generated code remains
+attributable to the user's source lines. This matters for code coverage: Julia only emits a
+coverage counter for a line that a `LineNumberNode` points at, so stripping the user's
+`LineNumberNode`s leaves every statement of a `@tensor begin ... end` block after the first one
+without any coverage information at all. Conversely, a synthesized `LineNumberNode` would
+re-attribute all statements that follow it to a line in the parser's own source, so both halves
+are needed.
 """
-function removeinternallinenumbernodes(ex)
+function removeinternallinenumbernodes(ex, userfiles)
     if isexpr(ex, :block)
         # within a block, `LineNumberNode`s are statement markers: drop the internal ones
         args = Any[
-            removeinternallinenumbernodes(e) for e in ex.args
-                if !_isinternallinenumber(e)
+            removeinternallinenumbernodes(e, userfiles) for e in ex.args
+                if !_isinternallinenumber(e, userfiles)
         ]
         return Expr(:block, args...)
     elseif isa(ex, Expr)
-        # elsewhere (e.g. the mandatory 2nd argument of a `:macrocall`) a `LineNumberNode` may
-        # be structurally required, so keep all positions and only recurse into nested blocks
-        return Expr(ex.head, Any[removeinternallinenumbernodes(e) for e in ex.args]...)
+        # elsewhere a `LineNumberNode` may be structurally required -- most notably as the
+        # mandatory 2nd argument of a `:macrocall` -- so keep all positions here and only
+        # recurse into nested blocks
+        return Expr(
+            ex.head, Any[removeinternallinenumbernodes(e, userfiles) for e in ex.args]...
+        )
     else
         return ex
     end
 end
 
-"""
-    removelinenumbernode(ex)
-
-Remove all `LineNumberNode`s from an expression.
-
-!!! note
-    Kept for backwards compatibility. The parser now uses
-    [`removeinternallinenumbernodes`](@ref), which preserves user `LineNumberNode`s so that
-    generated code stays attributable to the user's source lines (e.g. for code coverage).
-"""
-function removelinenumbernode(ex)
-    if isexpr(ex, :block)
-        args = [removelinenumbernode(e) for e in ex.args if !(e isa LineNumberNode)]
-        return Expr(:block, args...)
-    else
-        return ex
-    end
-end
+_isinternallinenumber(@nospecialize(x), userfiles) =
+    x isa LineNumberNode && x.file ∉ userfiles
 
 # list of functions that are used in expressions produced by `@tensor`
 const tensoroperationsfunctions = (

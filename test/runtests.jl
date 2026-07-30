@@ -11,6 +11,24 @@ using TensorOperations: DefaultAllocator, ManualAllocator, BufferAllocator
 precision(::Type{<:Union{Float32, Complex{Float32}}}) = 1.0e-2
 precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
 
+# https://github.com/QuantumKitHub/TensorOperations.jl/issues/280: the generated code has to
+# keep the user's `LineNumberNode`s -- Julia only emits a coverage counter for lines that a
+# `LineNumberNode` points at -- and drop the ones synthesized by the parser, which would
+# otherwise re-attribute the statements that follow them to a line in TensorOperations itself.
+# Only `LineNumberNode`s in block-statement position matter for that: elsewhere (most notably
+# the mandatory 2nd argument of a `:macrocall`) they are structurally required and left alone.
+function statementlinenumbernodes(ex, acc = LineNumberNode[])
+    if ex isa Expr
+        if ex.head === :block
+            for e in ex.args
+                e isa LineNumberNode && push!(acc, e)
+            end
+        end
+        foreach(e -> statementlinenumbernodes(e, acc), ex.args)
+    end
+    return acc
+end
+
 # don't run all tests on GPU, only the GPU
 # specific ones
 is_buildkite = get(ENV, "BUILDKITE", "false") == "true"

@@ -94,51 +94,86 @@ end
 
 # https://github.com/QuantumKitHub/TensorOperations.jl/issues/280: the generated code must keep
 # the user's `LineNumberNode`s (so `@tensor` lines show up in code coverage) while dropping the
-# parser's own internal ones (which would otherwise pollute the package's coverage).
+# parser's own, which would steal that attribution. See `statementlinenumbernodes` in
+# `runtests.jl` for why only block-statement positions are inspected. `@macroexpand1` is used
+# throughout so that we look at what `@tensor` itself produced, and not at the expansion of
+# macros that it merely passes through (e.g. the `@warn` of the `costcheck` path).
 @testset "line numbers (issue #280)" begin
-    collectlinenumbernodes(ex, acc = LineNumberNode[]) =
-        (
-        ex isa LineNumberNode ? push!(acc, ex) :
-            ex isa Expr && foreach(e -> collectlinenumbernodes(e, acc), ex.args); acc
-    )
-    pkgsrc = dirname(pathof(TensorOperations))
-    pkglnns(lnns) = filter(l -> startswith(String(l.file), pkgsrc), lnns)
-    userlines(lnns) = sort!(unique!([l.line for l in lnns if String(l.file) == @__FILE__]))
+    thisfile = Symbol(@__FILE__)
 
-    @testset "no internal LineNumberNodes leak into generated code" begin
-        # covers the scalar, dst-reuse and checkpoint `quote` paths in the parser
+    @testset "single-statement expressions carry no LineNumberNodes" begin
+        # nothing to preserve here: the input has no `LineNumberNode`s of its own, and the
+        # statement is attributed to the line of the `@tensor` call by the surrounding scope
         exprs = [
-            @macroexpand(@tensor T[a, b] := A[a, c] * B[c, b]),
-            @macroexpand(@tensor R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, f] * F[f, b]),
-            @macroexpand(@tensor s = X[a, b] * Y[a, b]),
-            @macroexpand(@tensoropt R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, b]),
-            @macroexpand(@tensor allocator = alloc R[a, b] := A[a, c] * B[c, d] * C[d, b]),
-            @macroexpand(@tensor costcheck = warn R[a, b] := A[a, c] * B[c, d] * C[d, b]),
-            @macroexpand(@tensor contractcheck = true R[a, b] := A[a, c] * B[c, b]),
+            @macroexpand1(@tensor T[a, b] := A[a, c] * B[c, b]),
+            @macroexpand1(@tensor R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, f] * F[f, b]),
+            @macroexpand1(@tensor s = X[a, b] * Y[a, b]),
+            @macroexpand1(@tensoropt R[a, b] := A[a, c] * B[c, d] * C[d, e] * E[e, b]),
+            @macroexpand1(@tensor allocator = alloc R[a, b] := A[a, c] * B[c, d] * C[d, b]),
+            @macroexpand1(@tensor costcheck = warn R[a, b] := A[a, c] * B[c, d] * C[d, b]),
+            @macroexpand1(@tensor contractcheck = true R[a, b] := A[a, c] * B[c, b]),
         ]
         for ex in exprs
-            @test isempty(pkglnns(collectlinenumbernodes(ex)))
+            @test isempty(statementlinenumbernodes(ex))
         end
     end
 
-    @testset "user LineNumberNodes are preserved per statement" begin
-        # multi-statement block, including a nested contraction whose intermediate is reused
-        block = @macroexpand @tensor begin
+    @testset "one user LineNumberNode per statement of a block" begin
+        # multi-statement block, including a scalar assignment; `s = ...` additionally
+        # exercises the `_flatten` path that hoists a block into the right hand side
+        firstline = @__LINE__() + 2
+        block = @macroexpand1 @tensor begin
             T[a, e] := A[a, c] * B[c, d] * C[d, e]
             D[a, b] := T[a, e] * E[e, b]
             s = D[a, b] * F[a, b]
         end
-        lnns = collectlinenumbernodes(block)
-        @test isempty(pkglnns(lnns))
-        @test length(userlines(lnns)) >= 3  # one distinct user line per statement
+        lnns = statementlinenumbernodes(block)
+        @test all(l -> l.file === thisfile, lnns)
+        @test sort!(unique(l.line for l in lnns)) == collect(firstline .+ (0:2))
 
-        optblock = @macroexpand @tensoropt begin
+        # dst-reuse: `tensorify` wraps this in a `quote` of its own
+        reuseline = @__LINE__() + 2
+        reuseblock = @macroexpand1 @tensor begin
+            T[a, b] := A[a, c] * B[c, b]
+            T[a, b] := T[a, c] * C[c, b]
+        end
+        reuselnns = statementlinenumbernodes(reuseblock)
+        @test all(l -> l.file === thisfile, reuselnns)
+        @test sort!(unique(l.line for l in reuselnns)) == collect(reuseline .+ (0:1))
+
+        optline = @__LINE__() + 2
+        optblock = @macroexpand1 @tensoropt begin
             T[a, e] := A[a, c] * B[c, d] * C[d, e]
             D[a, b] := T[a, e] * E[e, b]
         end
-        optlnns = collectlinenumbernodes(optblock)
-        @test isempty(pkglnns(optlnns))
-        @test length(userlines(optlnns)) >= 2
+        optlnns = statementlinenumbernodes(optblock)
+        @test all(l -> l.file === thisfile, optlnns)
+        @test sort!(unique(l.line for l in optlnns)) == collect(optline .+ (0:1))
+    end
+
+    @testset "kwargs that generate extra code preserve user line numbers" begin
+        # `allocator` inserts a checkpoint `quote`, `costcheck` inserts a `@notensor` block
+        # containing a `@warn` whose own `LineNumberNode` is structurally required
+        allocline = @__LINE__() + 2
+        allocblock = @macroexpand1 @tensor allocator = alloc begin
+            T[a, b] := A[a, c] * B[c, b]
+            Z[a, b] := T[a, c] * C[c, b]
+        end
+        alloclnns = statementlinenumbernodes(allocblock)
+        @test all(l -> l.file === thisfile, alloclnns)
+        @test sort!(unique(l.line for l in alloclnns)) == collect(allocline .+ (0:1))
+
+        costline = @__LINE__() + 2
+        costblock = @macroexpand1 @tensor costcheck = warn begin
+            T[a, b] := A[a, c] * B[c, b]
+            Z[a, b] := T[a, c] * C[c, b]
+        end
+        costlnns = statementlinenumbernodes(costblock)
+        @test all(l -> l.file === thisfile, costlnns)
+        @test sort!(unique(l.line for l in costlnns)) == collect(costline .+ (0:1))
+        # the `@warn` macrocall must have kept its (TensorOperations-internal) LineNumberNode,
+        # otherwise the expression cannot be expanded at all
+        @test macroexpand(@__MODULE__, costblock; recursive = true) isa Expr
     end
 end
 

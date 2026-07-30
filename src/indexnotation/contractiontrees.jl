@@ -161,7 +161,7 @@ function insertcontractiontrees!(
             end
         )
     end
-    push!(postexprs, removeinternallinenumbernodes(costcompareex))
+    push!(postexprs, costcompareex)
     return treeex
 end
 
