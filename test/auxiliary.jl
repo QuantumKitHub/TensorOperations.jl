@@ -118,6 +118,56 @@
             :(promote_add(promote_contract(scalartype(a), scalartype(b)), scalartype(c)))
     end
 
+    @testset "index verification" begin
+        using TensorOperations: verifyindices, normalizeindices
+
+        # every label appears once or exactly twice within a single term; different terms of
+        # a sum, different statements and explicit `tensorscalar` calls are separate scopes
+        valid = (
+            :(a[-1, -2] := b[-1, 1] * c[1, -2]),
+            :(a[-1, -2] := b[-1, 1] * c[1, -2] + d[-1, 1] * e[1, -2]),
+            :(a[-1, -2] := b[-1, 1] * (c[1, 2] + d[1, 2]) * e[2, -2]),
+            :(a[-1, -2] := b[-1, 1] * c[1, -2] * (d[2, 2])),
+            :(a[x, y] := b[x, y] - 2 * c[y, x]),
+            :(a[-1] := b[-1, 1, 1]),
+            :(a[x, y] := b[x, z] * tensorscalar(c[z, z]) * d[z, y]),
+            :(a[x, y] := b[x′, x] * c[x′, y]),
+            quote
+                a[-1, -2] := b[-1, 1] * c[1, -2]
+                d[-1, -2] := e[-1, 1] * f[1, -2]
+            end,
+        )
+        for ex in valid
+            @test verifyindices(normalizeindices(ex)) isa Expr
+        end
+
+        # a label consumed by a trace or contraction cannot be reused within the same term,
+        # and all terms of a sum should have matching open indices
+        invalid = (
+            :(a[-1, -2, -3; -4, -5] := b[-2, 1] * c[1, -3; 1, -5] * d[-1, 1; -4]), # issue #288
+            :(a[-1, -2] := b[-1, 1; 1, -2] * c[1, 1]),
+            :(a[-1, -2] := b[-1, 1] * c[1, -2] * d[1, 1, -3, -3]),
+            :(a[-1, -2] := b[-1, 1] * c[1, -2] * (d[1, 1])),
+            # parentheses do not introduce a new scope for the labels
+            :(a[-1, -2] := (b[-1, 1] * c[1, -3]) * (d[-3, 1] * e[1, -2])),
+            :(a[-1, -2] := b[-1, 1] * c[1, -3] * d[-3, 1] * e[1, -2]),
+            :(a[-1] := b[1, 1, 1]),
+            :(a[-1, -2] := b[-1, -2] + c[-1, 1]),
+            :(a[x, y] := b[x′, x] * c[x′, y] * d[x', 1]), # primes are equal after normalizing
+        )
+        for ex in invalid
+            @test_throws ArgumentError verifyindices(normalizeindices(ex))
+        end
+
+        # errors are thrown at macro expansion time
+        @test_throws ArgumentError @macroexpand(
+            @tensor T[-1, -2, -3; -4, -5] := A[-2, 1] * B[1, -3; 1, -5] * C[-1, 1; -4]
+        )
+        @test_throws ArgumentError @macroexpand(
+            @tensoropt T[-1, -2] := A[-1, 1] * B[1, -2] * C[1, 1]
+        )
+    end
+
     @testset "parsecost" begin
         using TensorOperations: parsecost, Power
         @test parsecost(:(3 / 5)) === 3 / 5

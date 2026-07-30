@@ -125,15 +125,15 @@ backendlist = (BaseCopy(), BaseView(), StridedNative(), StridedBLAS())
         @tensor backend = b C[3, 1, 4, 2] = β * C[3, 1, 4, 2] + α * A[1, 2, 3, 4]
         Ccopy = β * Ccopy + α * Acopy
         @test C ≈ Ccopy
-        @test_throws IndexError begin
+        @test_throws ArgumentError @macroexpand(
             @tensor C[3, 1, 4, 2] = 0.5 * C[3, 1, 4, 2] + 1.2 * A[1, 2, 3]
-        end
+        )
         @test_throws DimensionMismatch begin
             @tensor C[3, 1, 4, 2] = 0.5 * C[3, 1, 4, 2] + 1.2 * A[3, 1, 2, 4]
         end
-        @test_throws IndexError begin
+        @test_throws ArgumentError @macroexpand(
             @tensor C[1, 1, 2, 3] = 0.5 * C[1, 1, 2, 3] + 1.2 * A[1, 2, 3, 4]
-        end
+        )
     end
 
     @testset "views 3" begin
@@ -155,9 +155,7 @@ backendlist = (BaseCopy(), BaseView(), StridedNative(), StridedBLAS())
         @test_throws DimensionMismatch begin
             @tensor B[c, b] += α * A[a, b, c, a]
         end
-        @test_throws IndexError begin
-            @tensor B[c, b] += α * A[a, b, a, a]
-        end
+        @test_throws ArgumentError @macroexpand(@tensor B[c, b] += α * A[a, b, a, a])
         @test_throws DimensionMismatch begin
             @tensor B[c, b] += α * A[a, b, a, c]
         end

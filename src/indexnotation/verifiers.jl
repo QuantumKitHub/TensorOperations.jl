@@ -182,6 +182,122 @@ function istensorexpr(ex)
 end
 
 """
+    verifyindices(ex) -> ex
+
+Verify that all index labels in `ex` obey the strict Einstein summation convention, and throw an `ArgumentError` if not.
+This convention entails that within a single term, every index label should appear either once (an open index) or exactly twice (a contracted index, either between two different tensors or within a single tensor as a trace).
+Parentheses group the factors of a term and thus determine the contraction order, but do not introduce a new scope for the index labels.
+Different terms of a sum, different statements, and the argument of an explicit `tensorscalar` call do constitute separate scopes, in which labels can be reused freely.
+
+This routine expects the indices to be normalized, i.e. it should be called after [`normalizeindices`](@ref).
+The expression is returned unchanged, such that this can be used as a preprocessor.
+"""
+function verifyindices(ex)
+    if isexpr(ex, :macrocall) && ex.args[1] == Symbol("@notensor")
+        return ex
+    elseif istensor(ex) || istensorexpr(ex)
+        _indexscope(ex)
+    elseif isa(ex, Expr)
+        foreach(verifyindices, ex.args)
+    end
+    return ex
+end
+
+# analyze a single term and return its open indices, along with the indices that have been
+# contracted (closed) within that term; throws if the Einstein convention is violated
+function _indexscope(ex)
+    if istensor(ex)
+        _, leftind, rightind = decomposetensor(ex)
+        allind = vcat(leftind, rightind)
+        open, closed = Any[], Any[]
+        for label in unique(allind)
+            n = count(isequal(label), allind)
+            if n == 1
+                push!(open, label)
+            elseif n == 2
+                push!(closed, label)
+            else
+                throw(ArgumentError("@tensor: index $label appears $n times in tensor $ex"))
+            end
+        end
+        return open, closed
+    elseif isexpr(ex, :call)
+        if ex.args[1] == :tensorscalar
+            # separate scope: verify independently and hide the labels from the outer term
+            foreach(verifyindices, ex.args[2:end])
+            return Any[], Any[]
+        elseif (ex.args[1] == :+ || ex.args[1] == :-) && length(ex.args) > 2
+            return _indexscope_sum(ex)
+        elseif ex.args[1] == :*
+            return _indexscope_product(ex)
+        elseif ex.args[1] == :/ && length(ex.args) == 3
+            verifyindices(ex.args[3])
+            return _indexscope(ex.args[2])
+        elseif ex.args[1] == :\ && length(ex.args) == 3
+            verifyindices(ex.args[2])
+            return _indexscope(ex.args[3])
+        elseif length(ex.args) == 2 # unary plus or minus, conj, adjoint, ...
+            return _indexscope(ex.args[2])
+        end
+    elseif isexpr(ex, prime) && length(ex.args) == 1
+        return _indexscope(ex.args[1])
+    end
+    return Any[], Any[]
+end
+
+function _indexscope_sum(ex)
+    open = nothing
+    for term in ex.args[2:end]
+        if !istensorexpr(term)
+            verifyindices(term)
+            continue
+        end
+        openterm, = _indexscope(term)
+        if isnothing(open)
+            open = openterm
+        elseif Set(openterm) != Set(open)
+            throw(
+                ArgumentError(
+                    "@tensor: non-matching indices $(tuple(open...)) and $(tuple(openterm...)) between terms of $ex"
+                )
+            )
+        end
+    end
+    # the contracted labels of the individual terms are not visible outside of that term
+    return @something(open, Any[]), Any[]
+end
+
+function _indexscope_product(ex)
+    opens, closeds = Any[], Any[]
+    for factor in ex.args[2:end]
+        if !istensorexpr(factor)
+            verifyindices(factor) # scalar factor: cannot contribute index labels
+            continue
+        end
+        openfactor, closedfactor = _indexscope(factor)
+        append!(opens, openfactor)
+        append!(closeds, closedfactor)
+    end
+    # labels that are already contracted cannot be reused within this term
+    for label in unique(closeds)
+        n = 2 * count(isequal(label), closeds) + count(isequal(label), opens)
+        n > 2 && throw(ArgumentError("@tensor: index $label appears $n times in $ex"))
+    end
+    open, closed = Any[], closeds
+    for label in unique(opens)
+        n = count(isequal(label), opens)
+        if n == 1
+            push!(open, label)
+        elseif n == 2
+            push!(closed, label)
+        else
+            throw(ArgumentError("@tensor: index $label appears $n times in $ex"))
+        end
+    end
+    return open, closed
+end
+
+"""
     isassignment(ex)
 
 Test if `ex` is an assignment expression, i.e. `ex` is of one of the forms:
