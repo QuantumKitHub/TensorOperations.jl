@@ -222,11 +222,10 @@ function _indexscope(ex)
         end
         return open, closed
     elseif isexpr(ex, :call)
-        if ex.args[1] == :tensorscalar
-            # separate scope: verify independently and hide the labels from the outer term
-            foreach(verifyindices, ex.args[2:end])
-            return Any[], Any[]
-        elseif (ex.args[1] == :+ || ex.args[1] == :-) && length(ex.args) > 2
+        # note: an explicit `tensorscalar(...)` call is not an `istensorexpr`, so it never
+        # reaches here; it is verified as a separate scope through the scalar factor
+        # fallback in `_indexscope_product`
+        if (ex.args[1] == :+ || ex.args[1] == :-) && length(ex.args) > 2
             return _indexscope_sum(ex)
         elseif ex.args[1] == :*
             return _indexscope_product(ex)
@@ -246,12 +245,10 @@ function _indexscope(ex)
 end
 
 function _indexscope_sum(ex)
+    # unlike a product, a sum cannot carry scalar terms, since `istensorexpr` requires all
+    # of its terms to be tensor expressions
     open = nothing
     for term in ex.args[2:end]
-        if !istensorexpr(term)
-            verifyindices(term)
-            continue
-        end
         openterm, = _indexscope(term)
         if isnothing(open)
             open = openterm
@@ -264,7 +261,7 @@ function _indexscope_sum(ex)
         end
     end
     # the contracted labels of the individual terms are not visible outside of that term
-    return @something(open, Any[]), Any[]
+    return open, Any[]
 end
 
 function _indexscope_product(ex)

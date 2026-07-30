@@ -132,6 +132,22 @@
             :(a[-1] := b[-1, 1, 1]),
             :(a[x, y] := b[x, z] * tensorscalar(c[z, z]) * d[z, y]),
             :(a[x, y] := b[x′, x] * c[x′, y]),
+            # the divisor of `/` and `\` is a separate scope, but the tensor operand is not
+            :(a[x, y] := b[x, z] * c[z, y] / tensorscalar(d[z, z])),
+            :(a[x, y] := tensorscalar(d[z, z]) \ (b[x, z] * c[z, y])),
+            :(a[x, y] := b[x, z] * c[z, y] / alpha),
+            :(a[x, y] := 2 \ (b[x, z] * c[z, y])),
+            # conjugation, adjoint and unary minus pass the labels through unchanged
+            :(a[x, y] := conj(b[x, z]) * c[z, y]),
+            :(a[x, y] := (b[x, z])' * c[z, y]),
+            :(a[x, y] := -(b[x, z] * c[z, y])),
+            # `@notensor` is not index-verified at all
+            :(a[-1, -2] := (@notensor f(1)) * b[-1, -2]),
+            :(a[-1, -2] := (@notensor g[1, 1, 1]) * b[-1, -2]),
+            quote
+                @notensor b = c[1, 1, 1]
+                a[-1, -2] := d[-1, 1] * e[1, -2]
+            end,
             quote
                 a[-1, -2] := b[-1, 1] * c[1, -2]
                 d[-1, -2] := e[-1, 1] * f[1, -2]
@@ -154,6 +170,16 @@
             :(a[-1] := b[1, 1, 1]),
             :(a[-1, -2] := b[-1, -2] + c[-1, 1]),
             :(a[x, y] := b[x′, x] * c[x′, y] * d[x', 1]), # primes are equal after normalizing
+            # the divisor of `/` and `\` is verified in its own scope
+            :(a[x, y] := b[x, y] / tensorscalar(c[z, z, z])),
+            :(a[x, y] := tensorscalar(c[z, z, z]) \ b[x, y]),
+            # ... but the labels of the tensor operand do escape to the enclosing term
+            :(a[-1] := (b[-1, 1, 1] / 2) * c[1, 1]),
+            :(a[-1] := (2 \ b[-1, 1, 1]) * c[1, 1]),
+            # the argument of an explicit `tensorscalar` is still verified
+            :(a[x, y] := b[x, z] * tensorscalar(c[z, z, z]) * d[z, y]),
+            :(a[x, y] := b[x, y] * tensorscalar(c[z, z] + d[z, w])),
+            :(alpha = tensorscalar(c[z, z, z])),
         )
         for ex in invalid
             @test_throws ArgumentError verifyindices(normalizeindices(ex))

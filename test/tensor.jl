@@ -591,3 +591,33 @@ end
         @test E ≈ c * (A * B + C * D)
     end
 end
+
+# these are independent of the backend, so they are only tested once
+@testset "notensor" begin
+    list = randn(Float64, (4, 4, 2))
+    A = randn(Float64, (4, 4))
+    B = randn(Float64, (4, 4))
+    D = randn(Float64, (3, 3))
+
+    @tensor begin
+        @notensor X = list[:, :, 1]
+        @notensor Y = list[:, :, 2]
+        C[a, c] := X[a, b] * Y[b, c]
+    end
+    @test C ≈ list[:, :, 1] * list[:, :, 2]
+
+    @tensor G[a, c] := (@notensor tr(D)) * A[a, b] * B[b, c]
+    @test G ≈ tr(D) * A * B
+end
+
+@testset "scalar division" begin
+    A = randn(Float64, (4, 4))
+    B = randn(Float64, (4, 4))
+    D = randn(Float64, (3, 3))
+
+    # the label `b` is reused within the divisor, which is a separate scope
+    @tensor E[a, c] := A[a, b] * B[b, c] / tensorscalar(D[b, b])
+    @test E ≈ (A * B) / tr(D)
+    @tensor F[a, c] := tensorscalar(D[b, b]) \ (A[a, b] * B[b, c])
+    @test F ≈ (A * B) / tr(D)
+end
