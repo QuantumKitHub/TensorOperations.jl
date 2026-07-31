@@ -18,6 +18,7 @@ and `N₂` right indices.
 const Index2Tuple{N₁, N₂} = Tuple{IndexTuple{N₁}, IndexTuple{N₂}}
 
 linearize(p::Index2Tuple) = (p[1]..., p[2]...)
+linearize(p::IndexTuple) = p
 linearize(a::Tuple, b::Tuple) = (a..., b...)
 numout(p::Index2Tuple) = length(p[1])
 numin(p::Index2Tuple) = length(p[2])

@@ -114,7 +114,15 @@ function argcheck_tensorcontract(
         B::AbstractArray, pB::Index2Tuple,
         pAB::Index2Tuple
     )
-    argcheck_index2tuple(C, pAB)
+    return argcheck_tensorcontract(C, A, pA, B, pB, linearize(pAB))
+end
+function argcheck_tensorcontract(
+        C::AbstractArray,
+        A::AbstractArray, pA::Index2Tuple,
+        B::AbstractArray, pB::Index2Tuple,
+        pAB::IndexTuple
+    )
+    argcheck_indextuple(C, pAB)
     argcheck_index2tuple(A, pA)
     argcheck_index2tuple(B, pB)
     numout(pA) + numin(pB) == ndims(C) ||
@@ -170,11 +178,19 @@ function dimcheck_tensorcontract(
         B::AbstractArray, pB::Index2Tuple,
         pAB::Index2Tuple
     )
+    return dimcheck_tensorcontract(C, A, pA, B, pB, linearize(pAB))
+end
+function dimcheck_tensorcontract(
+        C::AbstractArray,
+        A::AbstractArray, pA::Index2Tuple,
+        B::AbstractArray, pB::Index2Tuple,
+        pAB::IndexTuple
+    )
     szA, szB, szC = size(A), size(B), size(C)
     TupleTools.getindices(szA, pA[2]) == TupleTools.getindices(szB, pB[1]) ||
         throw(DimensionMismatch("non-matching sizes in contracted dimensions"))
     szAB = (TupleTools.getindices(szA, pA[1])..., TupleTools.getindices(szB, pB[2])...)
-    TupleTools.getindices(szAB, linearize(pAB)) == szC ||
+    TupleTools.getindices(szAB, pAB) == szC ||
         throw(DimensionMismatch("non-matching sizes in uncontracted dimensions"))
     return nothing
 end

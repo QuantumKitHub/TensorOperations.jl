@@ -64,26 +64,59 @@ function tensorcontract!(
         B::AbstractArray, pB::Index2Tuple, conjB::Bool,
         pAB::Index2Tuple,
         α::Number, β::Number,
-        backend::StridedBackend, allocator = DefaultAllocator()
+        backend::StridedBLAS, allocator = DefaultAllocator()
     )
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+
+    (Base.mightalias(C, A) || Base.mightalias(C, B)) &&
+        throw(ArgumentError("output tensor must not be aliased with input tensor"))
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA && conjB
-        stridedtensorcontract!(
-            SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB′, α′, β′, backend, allocator)
     elseif conjA
-        stridedtensorcontract!(
-            SV(C), conj(SV(A)), pA, SV(B), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), conj(SV(A)), pA, SV(B), pB, pAB′, α′, β′, backend, allocator)
     elseif conjB
-        stridedtensorcontract!(
-            SV(C), SV(A), pA, conj(SV(B)), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), SV(A), pA, conj(SV(B)), pB, pAB′, α′, β′, backend, allocator)
     else
-        stridedtensorcontract!(
-            SV(C), SV(A), pA, SV(B), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), SV(A), pA, SV(B), pB, pAB′, α′, β′, backend, allocator)
     end
+
+    return C
+end
+
+function tensorcontract!(
+        C::AbstractArray,
+        A::AbstractArray, pA::Index2Tuple, conjA::Bool,
+        B::AbstractArray, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple,
+        α::Number, β::Number,
+        backend::StridedNative, allocator = DefaultAllocator()
+    )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
+    # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
+    if conjA && conjB
+        stridedtensorcontract!(SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB′, α′, β′)
+    elseif conjA
+        stridedtensorcontract!(SV(C), conj(SV(A)), pA, SV(B), pB, pAB′, α′, β′)
+    elseif conjB
+        stridedtensorcontract!(SV(C), SV(A), pA, conj(SV(B)), pB, pAB′, α′, β′)
+    else
+        stridedtensorcontract!(SV(C), SV(A), pA, SV(B), pB, pAB′, α′, β′)
+    end
+
     return C
 end
 
@@ -136,15 +169,10 @@ function stridedtensorcontract!(
         C::StridedView,
         A::StridedView, pA::Index2Tuple,
         B::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple,
+        pAB::IndexTuple,
         α::Number, β::Number,
-        backend::StridedBLAS, allocator = DefaultAllocator()
+        backend::StridedBLAS, allocator
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
-
-    (Base.mightalias(C, A) || Base.mightalias(C, B)) &&
-        throw(ArgumentError("output tensor must not be aliased with input tensor"))
 
     blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     return C
@@ -154,9 +182,8 @@ function stridedtensorcontract!(
         C::StridedView,
         A::StridedView, pA::Index2Tuple,
         B::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedNative, allocator = DefaultAllocator()
+        pAB::IndexTuple,
+        α::Number, β::Number
     )
     argcheck_tensorcontract(C, A, pA, B, pB, pAB)
     dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
@@ -174,7 +201,7 @@ function stridedtensorcontract!(
         (one.(osizeA)..., osizeB..., csizeB...)
     )
     CS = sreshape(
-        permutedims(C, invperm(linearize(pAB))),
+        permutedims(C, invperm(pAB)),
         (osizeA..., osizeB..., one.(csizeA)...)
     )
     tsize = (osizeA..., osizeB..., csizeA...)

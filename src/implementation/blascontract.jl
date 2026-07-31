@@ -6,14 +6,13 @@
 function blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     rpA = reverse(pA)
     rpB = reverse(pB)
-    indCinoBA = let N₁ = numout(pA), N₂ = numin(pB)
-        map(n -> ifelse(n > N₁, n - N₁, n + N₂), linearize(pAB))
+    # note: `pAB` is only ever consumed through `linearize`/`invperm` from here on, so it is
+    # canonicalized to an `IndexTuple` and the reversed permutation does not need to be
+    # repartitioned the way `pAB` is
+    pAB = linearize(pAB)
+    rpAB = let N₁ = numout(pA), N₂ = numin(pB)
+        map(n -> ifelse(n > N₁, n - N₁, n + N₂), pAB)
     end
-    tpAB = trivialpermutation(pAB)
-    rpAB = (
-        TupleTools.getindices(indCinoBA, tpAB[1]),
-        TupleTools.getindices(indCinoBA, tpAB[2]),
-    )
     cp = allocator_checkpoint!(allocator)
     if contract_memcost(C, A, pA, B, pB, pAB) <= contract_memcost(C, B, rpB, A, rpA, rpAB)
         C = _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
@@ -28,15 +27,15 @@ function blas_contract!(
         C::StridedView{T, 2},
         A::StridedView{T, 2}, pA::Index2Tuple{1, 1},
         B::StridedView{T, 2}, pB::Index2Tuple{1, 1},
-        pAB::Index2Tuple{1, 1},
+        pAB::IndexTuple{2},
         α::Number, β::Number,
         backend, allocator
     ) where {T}
     A′ = pA == ((1,), (2,)) ? A : transpose(A)
     B′ = pB == ((1,), (2,)) ? B : transpose(B)
-    if pAB == ((1,), (2,))
+    if pAB == (1, 2)
         mul!(C, A′, B′, α, β)
-    elseif pAB == ((2,), (1,))
+    elseif pAB == (2, 1)
         mul!(C, transpose(B′), transpose(A′), α, β)
     end
     return C
@@ -49,18 +48,23 @@ function _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     A_, pA, flagA = makeblascontractable(A, pA, TC, backend, allocator)
     B_, pB, flagB = makeblascontractable(B, pB, TC, backend, allocator)
 
+    # the partition of `ipAB` is required by `isblasdestination` and `tensoralloc_add`, but
+    # the actual contraction only needs the linearized permutation
     ipAB = oindABinC(pAB, pA, pB)
+    ipAB′ = linearize(ipAB)
     flagC = isblasdestination(C, ipAB)
     if flagC
         C_ = C
-        _unsafe_blas_contract!(C_, A_, pA, B_, pB, ipAB, α, β)
+        _unsafe_blas_contract!(C_, A_, pA, B_, pB, ipAB′, α, β)
     else
         C_ = SV(tensoralloc_add(TC, C, ipAB, false, Val(true), allocator))
         _unsafe_blas_contract!(
-            C_, A_, pA, B_, pB, trivialpermutation(ipAB),
+            C_, A_, pA, B_, pB, trivialpermutation(ipAB′),
             one(TC), zero(TC)
         )
-        tensoradd!(C, C_, pAB, false, α, β, backend, allocator)
+        # `C` already exists, so only the permutation of `pAB` matters here and it can be
+        # handed over in the canonical `{N,0}` partition
+        tensoradd!(C, C_, (pAB, ()), false, α, β, backend, allocator)
         tensorfree!(C_.parent, allocator)
     end
     flagA || tensorfree!(A_.parent, allocator)
@@ -74,7 +78,7 @@ function _unsafe_blas_contract!(
         C::StridedView{T},
         A::StridedView{T}, pA,
         B::StridedView{T}, pB,
-        pAB, α, β
+        pAB::IndexTuple, α, β
     ) where {T <: BlasFloat}
     sizeA = size(A)
     sizeB = size(B)
@@ -84,7 +88,7 @@ function _unsafe_blas_contract!(
     osizeB = TupleTools.getindices(sizeB, pB[2])
 
     mul!(
-        sreshape(permutedims(C, linearize(pAB)), (prod(osizeA), prod(osizeB))),
+        sreshape(permutedims(C, pAB), (prod(osizeA), prod(osizeB))),
         sreshape(permutedims(A, linearize(pA)), (prod(osizeA), prod(csizeA))),
         sreshape(permutedims(B, linearize(pB)), (prod(csizeB), prod(osizeB))),
         α, β
