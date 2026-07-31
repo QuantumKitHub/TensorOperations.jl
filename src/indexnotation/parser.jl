@@ -7,7 +7,8 @@ mutable struct TensorParser
     postprocessors::Vector{Any}
     function TensorParser()
         preprocessors = [
-            normalizeindices, expandconj, nconindexcompletion, extracttensorobjects,
+            normalizeindices, verifyindices, expandconj, nconindexcompletion,
+            extracttensorobjects,
         ]
         contractiontreebuilder = defaulttreebuilder
         contractiontreesorter = defaulttreesorter

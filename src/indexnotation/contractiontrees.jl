@@ -94,10 +94,8 @@ function insertcontractiontrees!(
     end
     args = ex.args[2:end]
     network = map(getindices, args)
-    for a in getallindices(ex)
-        count(a in n for n in network) <= 2 ||
-            throw(ArgumentError("index $a appears more than twice in tensor contraction: $ex"))
-    end
+    # the index labels have already been verified by `verifyindices`, such that every label
+    # appears at most twice within this term
     tree = treebuilder(network)
     treeex = treesorter(args, tree, depth)
 

@@ -125,15 +125,15 @@ backendlist = (BaseCopy(), BaseView(), StridedNative(), StridedBLAS())
         @tensor backend = b C[3, 1, 4, 2] = β * C[3, 1, 4, 2] + α * A[1, 2, 3, 4]
         Ccopy = β * Ccopy + α * Acopy
         @test C ≈ Ccopy
-        @test_throws IndexError begin
+        @test_throws ArgumentError @macroexpand(
             @tensor C[3, 1, 4, 2] = 0.5 * C[3, 1, 4, 2] + 1.2 * A[1, 2, 3]
-        end
+        )
         @test_throws DimensionMismatch begin
             @tensor C[3, 1, 4, 2] = 0.5 * C[3, 1, 4, 2] + 1.2 * A[3, 1, 2, 4]
         end
-        @test_throws IndexError begin
+        @test_throws ArgumentError @macroexpand(
             @tensor C[1, 1, 2, 3] = 0.5 * C[1, 1, 2, 3] + 1.2 * A[1, 2, 3, 4]
-        end
+        )
     end
 
     @testset "views 3" begin
@@ -155,9 +155,7 @@ backendlist = (BaseCopy(), BaseView(), StridedNative(), StridedBLAS())
         @test_throws DimensionMismatch begin
             @tensor B[c, b] += α * A[a, b, c, a]
         end
-        @test_throws IndexError begin
-            @tensor B[c, b] += α * A[a, b, a, a]
-        end
+        @test_throws ArgumentError @macroexpand(@tensor B[c, b] += α * A[a, b, a, a])
         @test_throws DimensionMismatch begin
             @tensor B[c, b] += α * A[a, b, a, c]
         end
@@ -592,4 +590,34 @@ end
         @test scalartype(E) == ComplexF64
         @test E ≈ c * (A * B + C * D)
     end
+end
+
+# these are independent of the backend, so they are only tested once
+@testset "notensor" begin
+    list = randn(Float64, (4, 4, 2))
+    A = randn(Float64, (4, 4))
+    B = randn(Float64, (4, 4))
+    D = randn(Float64, (3, 3))
+
+    @tensor begin
+        @notensor X = list[:, :, 1]
+        @notensor Y = list[:, :, 2]
+        C[a, c] := X[a, b] * Y[b, c]
+    end
+    @test C ≈ list[:, :, 1] * list[:, :, 2]
+
+    @tensor G[a, c] := (@notensor tr(D)) * A[a, b] * B[b, c]
+    @test G ≈ tr(D) * A * B
+end
+
+@testset "scalar division" begin
+    A = randn(Float64, (4, 4))
+    B = randn(Float64, (4, 4))
+    D = randn(Float64, (3, 3))
+
+    # the label `b` is reused within the divisor, which is a separate scope
+    @tensor E[a, c] := A[a, b] * B[b, c] / tensorscalar(D[b, b])
+    @test E ≈ (A * B) / tr(D)
+    @tensor F[a, c] := tensorscalar(D[b, b]) \ (A[a, b] * B[b, c])
+    @test F ≈ (A * B) / tr(D)
 end
