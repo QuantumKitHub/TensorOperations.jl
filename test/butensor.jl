@@ -6,6 +6,20 @@
 end
 
 using Bumper
+@testset "@butensor preserves user line numbers (issue #280)" begin
+    # `@butensor` wraps the block in an inner `@tensor`, so the expansion has to be recursive
+    # here to reach the code that the parser generated. This also covers the extension itself:
+    # `_butensor` must not introduce `LineNumberNode`s pointing into `ext/`.
+    firstline = @__LINE__() + 2
+    block = @macroexpand @butensor begin
+        T[a, b] := X[a, c] * Y[c, b]
+        Z[a, b] := T[a, c] * W[c, b]
+    end
+    lnns = statementlinenumbernodes(block)
+    @test all(l -> l.file === Symbol(@__FILE__), lnns)
+    @test sort!(unique(l.line for l in lnns)) == collect(firstline .+ (0:1))
+end
+
 @testset "Bumper tests with eltype $T" for T in (Float32, ComplexF64)
     D1, D2, D3 = 30, 40, 20
     d1, d2 = 2, 3
