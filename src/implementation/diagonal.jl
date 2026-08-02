@@ -117,18 +117,15 @@ function tensorcontract!(
     argcheck_tensorcontract(C, A, pA, B, pB, pAB′)
     dimcheck_tensorcontract(C, A, pA, B, pB, pAB′)
 
-    A2 = StridedView(A.diag)
-    B2 = StridedView(B.diag)
-    C2 = StridedView(C.diag)
-
+    C2 = SV(C.diag)
     if conjA && conjB
-        C2 .= C2 .* β′ .+ conj.(A2 .* B2) .* α′
+        _diagdiagdiagcontract!(C2, conj(SV(A.diag)), conj(SV(B.diag)), α′, β′)
     elseif conjA
-        C2 .= C2 .* β′ .+ conj.(A2) .* B2 .* α′
+        _diagdiagdiagcontract!(C2, conj(SV(A.diag)), SV(B.diag), α′, β′)
     elseif conjB
-        C2 .= C2 .* β′ .+ A2 .* conj.(B2) .* α′
+        _diagdiagdiagcontract!(C2, SV(A.diag), conj(SV(B.diag)), α′, β′)
     else
-        C2 .= C2 .* β′ .+ A2 .* B2 .* α′
+        _diagdiagdiagcontract!(C2, SV(A.diag), SV(B.diag), α′, β′)
     end
     return C
 end
@@ -172,6 +169,19 @@ function _diagtensorcontract!(
 
     Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), totsize, (C2, A2, B2))
 
+    return C
+end
+
+function _diagdiagdiagcontract!(
+        C::StridedView, Adiag::StridedView, Bdiag::StridedView, α::Number, β::Number
+    )
+    totsize = (length(C),)
+    # required: `β` was standardized, so `Zero()` no longer kills NaNs in uninitialized `C`
+    if iszero(β)
+        Strided._mapreducedim!(Scaler(α), nothing, nothing, totsize, (C, Adiag, Bdiag))
+    else
+        Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), totsize, (C, Adiag, Bdiag))
+    end
     return C
 end
 

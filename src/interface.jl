@@ -252,6 +252,12 @@ function tensorcontract_type end
 Convert the scalar `α` into a standardized type suitable for combining with the output tensor `C`.
 This hook can be used to reduce the number of compiled specializations of some kernels,
 by ensuring that the scalars always arrive in a canonical type.
+
+!!! warning
+    Standardizing `Zero()` or `One()` discards their strong-zero and strong-one semantics, so a
+    kernel receiving a standardized scalar must either combine it through `VectorInterface`
+    (`scale`, `scale!`, `add`) or branch explicitly on `iszero(β)`. A plain `β * C` would
+    otherwise propagate `NaN`s from uninitialized output memory when `β == 0`.
 """
 standardize_scalartype(C, α::Number) = _standardize_scalartype(scalartype(C), α)
 _standardize_scalartype(::Type{T}, α::Number) where {T <: Number} = convert(T, α)
