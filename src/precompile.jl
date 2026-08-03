@@ -1,5 +1,5 @@
-using PrecompileTools: PrecompileTools
-using Preferences: @load_preference, load_preference
+using PrecompileTools: PrecompileTools, @setup_workload, @compile_workload
+using Preferences: @load_preference
 
 # Validate preferences input
 # --------------------------
@@ -49,92 +49,110 @@ const PRECOMPILE_CONTRACT_NDIMS = validate_contract_ndims(
     @load_preference("precompile_contract_ndims", [4, 2])
 )
 
-# Copy from PrecompileTools.workload_enabled but default to false
-function workload_enabled(mod::Module = @__MODULE__)
-    return try
-        if load_preference(PrecompileTools, "precompile_workloads", true)
-            return load_preference(mod, "precompile_workload", false)
-        else
-            return false
-        end
-    catch
-        false
-    end
+# Precompilation workload
+# ------------------------
+# The workload actually runs representative tensor operations so that PrecompileTools caches
+# the specializations that get compiled. Each operation family is factored into a reusable
+# `precompile_*` function that can also be called from a downstream package's own
+# `@compile_workload` to precompile for a different backend, allocator, or array type.
+#
+# `@compile_workload` is enabled by default and honors the standard `precompile_workload`
+# preference, which can be flipped to disable precompilation:
+#
+#     using TensorOperations, Preferences
+#     set_preferences!(TensorOperations, "precompile_workload" => false; force=true)
+
+# Tensor constructor used by the precompile workloads: build a rank-`N` tensor of scalar type
+# `T`. Downstream callers can add methods for other array types to reuse the `precompile_*`
+# functions below.
+precompile_maketensor(T, N) = zeros(T, ntuple(Returns(2), N))
+
+"""
+    precompile_tensoradd(T, N, backend, allocator)
+
+Run [`tensoradd!`](@ref) and [`tensoralloc_add`](@ref) for scalar type `T` and output rank `N`,
+using `backend` and `allocator`, so that their specializations are precompiled.
+"""
+function precompile_tensoradd(
+        T, N, backend = DefaultBackend(), allocator = DefaultAllocator()
+    )
+    C = precompile_maketensor(T, N)
+    A = precompile_maketensor(T, N)
+    pA = (ntuple(identity, N), ())
+
+    tensoradd!(C, A, pA, false, One(), Zero(), backend, allocator)
+    tensoradd!(C, A, pA, false, one(T), Zero(), backend, allocator)
+    tensoradd!(C, A, pA, false, one(T), zero(T), backend, allocator)
+
+    tensoralloc_add(T, A, pA, false, Val(true), allocator)
+    tensoralloc_add(T, A, pA, false, Val(false), allocator)
+    return nothing
 end
 
-# Using explicit precompile statements here instead of @compile_workload:
-# Actually running the precompilation through PrecompileTools leads to longer compile times
-# Keeping the workload_enabled functionality to have the option of disabling precompilation
-# in a compatible manner with the rest of the ecosystem
-if workload_enabled()
-    # tensoradd!
-    # ----------
-    for T in PRECOMPILE_ELTYPES
-        for N in 0:PRECOMPILE_ADD_NDIMS
-            C = Array{T, N}
-            A = Array{T, N}
-            pA = Index2Tuple{N, 0}
+"""
+    precompile_tensortrace(T, (N1, N2), backend, allocator)
 
-            precompile(tensoradd!, (C, A, pA, Bool, One, Zero))
-            precompile(tensoradd!, (C, A, pA, Bool, T, Zero))
-            precompile(tensoradd!, (C, A, pA, Bool, T, T))
+Run [`tensortrace!`](@ref) for scalar type `T`, output rank `N1`, and `N2` traced index pairs,
+using `backend` and `allocator`, so that their specializations are precompiled.
+"""
+function precompile_tensortrace(
+        T, (N1, N2), backend = DefaultBackend(), allocator = DefaultAllocator()
+    )
+    C = precompile_maketensor(T, N1)
+    A = precompile_maketensor(T, N1 + 2N2)
+    p = (ntuple(identity, N1), ())
+    q = (ntuple(i -> N1 + i, N2), ntuple(i -> N1 + N2 + i, N2))
 
-            precompile(tensoralloc_add, (T, A, pA, Bool, Val{true}))
-            precompile(tensoralloc_add, (T, A, pA, Bool, Val{false}))
+    tensortrace!(C, A, p, q, false, One(), Zero(), backend, allocator)
+    tensortrace!(C, A, p, q, false, one(T), Zero(), backend, allocator)
+    tensortrace!(C, A, p, q, false, one(T), zero(T), backend, allocator)
+
+    # allocation re-uses tensoralloc_add
+    return nothing
+end
+
+"""
+    precompile_tensorcontract(T, (N1, N2, N3), backend, allocator)
+
+Run [`tensorcontract!`](@ref) and [`tensoralloc_contract`](@ref) for scalar type `T`, with `N1`
+and `N3` free output indices on the two inputs and `N2` contracted indices, using `backend` and
+`allocator`, so that their specializations are precompiled.
+"""
+function precompile_tensorcontract(
+        T, (N1, N2, N3), backend = DefaultBackend(), allocator = DefaultAllocator()
+    )
+    NA = N1 + N2
+    NB = N2 + N3
+    NC = N1 + N3
+    C = precompile_maketensor(T, NC)
+    A = precompile_maketensor(T, NA)
+    B = precompile_maketensor(T, NB)
+    pA = (ntuple(identity, N1), ntuple(i -> N1 + i, N2))
+    pB = (ntuple(identity, N2), ntuple(i -> N2 + i, N3))
+    pAB = (ntuple(identity, NC), ())
+
+    tensorcontract!(C, A, pA, false, B, pB, false, pAB, One(), Zero(), backend, allocator)
+    tensorcontract!(C, A, pA, false, B, pB, false, pAB, one(T), Zero(), backend, allocator)
+    tensorcontract!(C, A, pA, false, B, pB, false, pAB, one(T), zero(T), backend, allocator)
+
+    tensoralloc_contract(T, A, pA, false, B, pB, false, pAB, Val(true), allocator)
+    tensoralloc_contract(T, A, pA, false, B, pB, false, pAB, Val(false), allocator)
+    return nothing
+end
+
+@setup_workload begin
+    @compile_workload begin
+        for T in PRECOMPILE_ELTYPES
+            for N in 0:PRECOMPILE_ADD_NDIMS
+                precompile_tensoradd(T, N)
+            end
+            for N1 in 0:PRECOMPILE_TRACE_NDIMS[1], N2 in 0:PRECOMPILE_TRACE_NDIMS[2]
+                precompile_tensortrace(T, (N1, N2))
+            end
+            for N1 in 0:PRECOMPILE_CONTRACT_NDIMS[1], N2 in 0:PRECOMPILE_CONTRACT_NDIMS[2],
+                    N3 in 0:PRECOMPILE_CONTRACT_NDIMS[1]
+                precompile_tensorcontract(T, (N1, N2, N3))
+            end
         end
     end
-
-    # tensortrace!
-    # ------------
-    for T in PRECOMPILE_ELTYPES
-        for N1 in 0:PRECOMPILE_TRACE_NDIMS[1], N2 in 0:PRECOMPILE_TRACE_NDIMS[2]
-            C = Array{T, N1}
-            A = Array{T, N1 + 2N2}
-            p = Index2Tuple{N1, 0}
-            q = Index2Tuple{N2, N2}
-
-            precompile(tensortrace!, (C, A, p, q, Bool, One, Zero))
-            precompile(tensortrace!, (C, A, p, q, Bool, T, Zero))
-            precompile(tensortrace!, (C, A, p, q, Bool, T, T))
-
-            # allocation re-uses tensoralloc_add
-        end
-    end
-
-    # tensorcontract!
-    # ---------------
-    for T in PRECOMPILE_ELTYPES
-        for N1 in 0:PRECOMPILE_CONTRACT_NDIMS[1], N2 in 0:PRECOMPILE_CONTRACT_NDIMS[2],
-                N3 in 0:PRECOMPILE_CONTRACT_NDIMS[1]
-
-            NA = N1 + N2
-            NB = N2 + N3
-            NC = N1 + N3
-            C, A, B = Array{T, NC}, Array{T, NA}, Array{T, NB}
-            pA = Index2Tuple{N1, N2}
-            pB = Index2Tuple{N2, N3}
-            pAB = Index2Tuple{NC, 0}
-
-            precompile(tensorcontract!, (C, A, pA, Bool, B, pB, Bool, pAB, One, Zero))
-            precompile(tensorcontract!, (C, A, pA, Bool, B, pB, Bool, pAB, T, Zero))
-            precompile(tensorcontract!, (C, A, pA, Bool, B, pB, Bool, pAB, T, T))
-
-            precompile(tensoralloc_contract, (T, A, pA, Bool, B, pB, Bool, pAB, Val{true}))
-            precompile(tensoralloc_contract, (T, A, pA, Bool, B, pB, Bool, pAB, Val{false}))
-        end
-    end
-else
-    @info """
-    TensorOperations can optionally be instructed to precompile several functions, which can be used to reduce the time to first execution (TTFX).
-    This is disabled by default as this can take a while on some machines, and is only relevant for contraction-heavy workloads.
-
-    To enable or disable precompilation, you can use the following script:
-
-    ```julia
-    using TensorOperations, Preferences
-    set_preferences!(TensorOperations, "precompile_workload" => true; force=true)
-    ```
-
-    This will create a `LocalPreferences.toml` file next to your current `Project.toml` file to store this setting in a persistent way.
-    """
 end

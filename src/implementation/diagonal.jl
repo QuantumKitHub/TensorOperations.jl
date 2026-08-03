@@ -9,17 +9,24 @@ function tensorcontract!(
         α::Number, β::Number,
         ::StridedNative, allocator = DefaultAllocator()
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    @nospecialize allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB′)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB′)
 
     if conjA && conjB
-        _diagtensorcontract!(SV(C), conj(SV(A)), pA, conj(SV(B.diag)), pB, pAB, α, β)
+        _diagtensorcontract!(SV(C), conj(SV(A)), pA, conj(SV(B.diag)), pB, pAB′, α′, β′)
     elseif conjA
-        _diagtensorcontract!(SV(C), conj(SV(A)), pA, SV(B.diag), pB, pAB, α, β)
+        _diagtensorcontract!(SV(C), conj(SV(A)), pA, SV(B.diag), pB, pAB′, α′, β′)
     elseif conjB
-        _diagtensorcontract!(SV(C), SV(A), pA, conj(SV(B.diag)), pB, pAB, α, β)
+        _diagtensorcontract!(SV(C), SV(A), pA, conj(SV(B.diag)), pB, pAB′, α′, β′)
     else
-        _diagtensorcontract!(SV(C), SV(A), pA, SV(B.diag), pB, pAB, α, β)
+        _diagtensorcontract!(SV(C), SV(A), pA, SV(B.diag), pB, pAB′, α′, β′)
     end
     return C
 end
@@ -32,28 +39,32 @@ function tensorcontract!(
         α::Number, β::Number,
         ::StridedNative, allocator = DefaultAllocator()
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    @nospecialize allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB′)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB′)
 
     rpA = reverse(pA)
     rpB = reverse(pB)
-    indCinoBA = let N₁ = numout(pA), N₂ = numin(pB)
-        map(n -> ifelse(n > N₁, n - N₁, n + N₂), linearize(pAB))
+    # note: `pAB` is only ever consumed through `linearize`/`invperm`, so the reversed
+    # permutation does not need to be repartitioned as `pAB` is
+    rpAB = let N₁ = numout(pA), N₂ = numin(pB)
+        map(n -> ifelse(n > N₁, n - N₁, n + N₂), pAB′)
     end
-    tpAB = trivialpermutation(pAB)
-    rpAB = (
-        TupleTools.getindices(indCinoBA, tpAB[1]),
-        TupleTools.getindices(indCinoBA, tpAB[2]),
-    )
 
     if conjA && conjB
-        _diagtensorcontract!(SV(C), conj(SV(B)), rpB, conj(SV(A.diag)), rpA, rpAB, α, β)
+        _diagtensorcontract!(SV(C), conj(SV(B)), rpB, conj(SV(A.diag)), rpA, rpAB, α′, β′)
     elseif conjA
-        _diagtensorcontract!(SV(C), SV(B), rpB, conj(SV(A.diag)), rpA, rpAB, α, β)
+        _diagtensorcontract!(SV(C), SV(B), rpB, conj(SV(A.diag)), rpA, rpAB, α′, β′)
     elseif conjB
-        _diagtensorcontract!(SV(C), conj(SV(B)), rpB, SV(A.diag), rpA, rpAB, α, β)
+        _diagtensorcontract!(SV(C), conj(SV(B)), rpB, SV(A.diag), rpA, rpAB, α′, β′)
     else
-        _diagtensorcontract!(SV(C), SV(B), rpB, SV(A.diag), rpA, rpAB, α, β)
+        _diagtensorcontract!(SV(C), SV(B), rpB, SV(A.diag), rpA, rpAB, α′, β′)
     end
     return C
 end
@@ -66,17 +77,24 @@ function tensorcontract!(
         α::Number, β::Number,
         ::StridedNative, allocator = DefaultAllocator()
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    @nospecialize allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB′)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB′)
 
     if conjA && conjB
-        _diagdiagcontract!(SV(C), conj(SV(A.diag)), pA, conj(SV(B.diag)), pB, pAB, α, β)
+        _diagdiagcontract!(SV(C), conj(SV(A.diag)), pA, conj(SV(B.diag)), pB, pAB′, α′, β′)
     elseif conjA
-        _diagdiagcontract!(SV(C), conj(SV(A.diag)), pA, SV(B.diag), pB, pAB, α, β)
+        _diagdiagcontract!(SV(C), conj(SV(A.diag)), pA, SV(B.diag), pB, pAB′, α′, β′)
     elseif conjB
-        _diagdiagcontract!(SV(C), SV(A.diag), pA, conj(SV(B.diag)), pB, pAB, α, β)
+        _diagdiagcontract!(SV(C), SV(A.diag), pA, conj(SV(B.diag)), pB, pAB′, α′, β′)
     else
-        _diagdiagcontract!(SV(C), SV(A.diag), pA, SV(B.diag), pB, pAB, α, β)
+        _diagdiagcontract!(SV(C), SV(A.diag), pA, SV(B.diag), pB, pAB′, α′, β′)
     end
     return C
 end
@@ -89,21 +107,25 @@ function tensorcontract!(
         α::Number, β::Number,
         ::StridedNative, allocator = DefaultAllocator()
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    @nospecialize allocator
 
-    A2 = StridedView(A.diag)
-    B2 = StridedView(B.diag)
-    C2 = StridedView(C.diag)
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
 
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB′)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB′)
+
+    C2 = SV(C.diag)
     if conjA && conjB
-        C2 .= C2 .* β .+ conj.(A2 .* B2) .* α
+        _diagdiagdiagcontract!(C2, conj(SV(A.diag)), conj(SV(B.diag)), α′, β′)
     elseif conjA
-        C2 .= C2 .* β .+ conj.(A2) .* B2 .* α
+        _diagdiagdiagcontract!(C2, conj(SV(A.diag)), SV(B.diag), α′, β′)
     elseif conjB
-        C2 .= C2 .* β .+ A2 .* conj.(B2) .* α
+        _diagdiagdiagcontract!(C2, SV(A.diag), conj(SV(B.diag)), α′, β′)
     else
-        C2 .= C2 .* β .+ A2 .* B2 .* α
+        _diagdiagdiagcontract!(C2, SV(A.diag), SV(B.diag), α′, β′)
     end
     return C
 end
@@ -112,7 +134,7 @@ function _diagtensorcontract!(
         C::StridedView,
         A::StridedView, pA::Index2Tuple,
         Bdiag::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple, α::Number, β::Number
+        pAB::IndexTuple, α::Number, β::Number
     )
     sizeA = i -> size(A, i)
     csizeA = sizeA.(pA[2])
@@ -122,7 +144,7 @@ function _diagtensorcontract!(
         totsize = (osizeA..., csizeA...)
         A2 = permutedims(A, linearize(pA))
         B2 = sreshape(Bdiag, ((one.(osizeA))..., csizeA...))
-        C2 = permutedims(C, invperm(linearize(pAB)))
+        C2 = permutedims(C, invperm(pAB))
 
     elseif numin(pB) == 0
         strideA = i -> stride(A, i)
@@ -130,7 +152,7 @@ function _diagtensorcontract!(
         totsize = (osizeA..., csizeA[1])
         A2 = StridedView(A.parent, totsize, newstrides, A.offset, A.op)
         B2 = sreshape(Bdiag, ((one.(osizeA))..., csizeA[1]))
-        C2 = permutedims(C, invperm(linearize(pAB)))
+        C2 = permutedims(C, invperm(pAB))
 
     else # numout(pB) == 2 # direct product
         scale!(C, β)
@@ -138,17 +160,28 @@ function _diagtensorcontract!(
         A2 = sreshape(permutedims(A, linearize(pA)), (osizeA..., 1))
         B2 = sreshape(Bdiag, ((one.(osizeA))..., length(Bdiag)))
 
-        C3 = permutedims(C, invperm(linearize(pAB)))
+        C3 = permutedims(C, invperm(pAB))
         sC = strides(C3)
         newstrides = (Base.front(Base.front(sC))..., sC[end - 1] + sC[end])
         totsize = (osizeA..., length(Bdiag))
         C2 = StridedView(C3.parent, totsize, newstrides, C3.offset, C3.op)
     end
 
-    op1 = Base.Fix2(scale, α) ∘ *
-    op2 = Base.Fix2(scale, β)
-    Strided._mapreducedim!(op1, +, op2, totsize, (C2, A2, B2))
+    Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), totsize, (C2, A2, B2))
 
+    return C
+end
+
+function _diagdiagdiagcontract!(
+        C::StridedView, Adiag::StridedView, Bdiag::StridedView, α::Number, β::Number
+    )
+    totsize = (length(C),)
+    # required: `β` was standardized, so `Zero()` no longer kills NaNs in uninitialized `C`
+    if iszero(β)
+        Strided._mapreducedim!(Scaler(α), nothing, nothing, totsize, (C, Adiag, Bdiag))
+    else
+        Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), totsize, (C, Adiag, Bdiag))
+    end
     return C
 end
 
@@ -156,7 +189,7 @@ function _diagdiagcontract!(
         C::StridedView,
         Adiag::StridedView, pA::Index2Tuple,
         Bdiag::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple, α::Number, β::Number
+        pAB::IndexTuple, α::Number, β::Number
     )
     if numin(pA) == 1 # matrix multiplication
         scale!(C, β)
@@ -181,16 +214,14 @@ function _diagdiagcontract!(
         A2 = sreshape(Adiag, (length(Adiag), 1))
         B2 = sreshape(Bdiag, (1, length(Adiag)))
 
-        C3 = permutedims(C, invperm(linearize(pAB)))
+        C3 = permutedims(C, invperm(pAB))
         strC = strides(C3)
         newstrides = (strC[1] + strC[2], strC[3] + strC[4])
         totsize = (length(A2), length(B2))
         C2 = StridedView(C3.parent, totsize, newstrides, C3.offset, C3.op)
     end
 
-    op1 = Base.Fix2(scale, α) ∘ *
-    op2 = Base.Fix2(scale, β)
-    Strided._mapreducedim!(op1, +, op2, totsize, (C2, A2, B2))
+    Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), totsize, (C2, A2, B2))
 
     return C
 end

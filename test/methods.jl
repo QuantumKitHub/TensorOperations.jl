@@ -252,3 +252,54 @@ end
         )
     end
 end
+
+# β = 0 must act as a strong zero: uninitialized output must not leak NaNs
+#-------------------------------------------------------------------------
+@testset "strong zero β with Diagonal ($T)" for T in (Float64, ComplexF64)
+    Zero = TensorOperations.VectorInterface.Zero
+    n = 4
+    d = randn(T, n)
+    S = Diagonal(d)
+    A = randn(T, n, n, n, n)
+    F = randn(T, n, n)
+    poison(dims...) = fill(T(NaN), dims...)
+
+    # C[i,j,k,l] = A[i,j,k,a] * S[a,l]
+    C1 = poison(n, n, n, n)
+    tensorcontract!(
+        C1, A, ((1, 2, 3), (4,)), false, S, ((1,), (2,)), false,
+        ((1, 2, 3, 4), ()), 1, Zero()
+    )
+    @test C1 ≈ [A[i, j, k, l] * d[l] for i in 1:n, j in 1:n, k in 1:n, l in 1:n]
+
+    # C[i,j] = A[i,j,a,b] * S[a,b]
+    C2 = poison(n, n)
+    tensorcontract!(
+        C2, A, ((1, 2), (3, 4)), false, S, ((1, 2), ()), false,
+        ((1, 2), ()), 1, Zero()
+    )
+    @test C2 ≈ [sum(A[i, j, a, a] * d[a] for a in 1:n) for i in 1:n, j in 1:n]
+
+    # C[a,c,b,d] = F[a,b] * S[c,d]
+    C3 = poison(n, n, n, n)
+    tensorcontract!(
+        C3, F, ((1, 2), ()), false, S, ((), (1, 2)), false,
+        ((1, 3, 2, 4), ()), 1, Zero()
+    )
+    @test C3 ≈ [F[a, b] * (c == e ? d[c] : zero(T)) for a in 1:n, c in 1:n, b in 1:n, e in 1:n]
+
+    # C[i,k] = S[i,j] * S[j,k], into a dense matrix and into a Diagonal
+    C4 = poison(n, n)
+    tensorcontract!(
+        C4, S, ((1,), (2,)), false, S, ((1,), (2,)), false,
+        ((1, 2), ()), 1, Zero()
+    )
+    @test C4 ≈ Array(S * S)
+
+    C5 = Diagonal(poison(n))
+    tensorcontract!(
+        C5, S, ((1,), (2,)), false, S, ((1,), (2,)), false,
+        ((1, 2), ()), 1, Zero()
+    )
+    @test C5 ≈ S * S
+end

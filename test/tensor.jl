@@ -357,6 +357,10 @@ end
     S3 = similar(S)
     @tensor S3[i, k] = S[i, j] * S[j, k]
     @test S2 ≈ S3 ≈ S * S
+    # β = 0 must act as a strong zero: uninitialized output must not leak NaNs
+    S4 = Diagonal(fill(T(NaN), 5))
+    @tensor S4[i, k] = S[i, j] * S[j, k]
+    @test S4 ≈ S * S
     Str = @tensor S[i, j] * S[i, j]
     @test Str ≈ sum(S.diag .^ 2)
 

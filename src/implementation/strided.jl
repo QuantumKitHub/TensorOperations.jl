@@ -18,12 +18,20 @@ function tensoradd!(
         α::Number, β::Number,
         backend::StridedBackend, allocator = DefaultAllocator()
     )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    p = linearize(pA)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensoradd!(SV(C), conj(SV(A)), pA, α, β, backend, allocator)
+        stridedtensoradd!(SV(C), conj(SV(A)), p, α′, β′)
     else
-        stridedtensoradd!(SV(C), SV(A), pA, α, β, backend, allocator)
+        stridedtensoradd!(SV(C), SV(A), p, α′, β′)
     end
+
     return C
 end
 
@@ -33,12 +41,20 @@ function tensortrace!(
         α::Number, β::Number,
         backend::StridedBackend, allocator = DefaultAllocator()
     )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    p′ = linearize(p)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA
-        stridedtensortrace!(SV(C), conj(SV(A)), p, q, α, β, backend, allocator)
+        stridedtensortrace!(SV(C), conj(SV(A)), p′, q, α′, β′)
     else
-        stridedtensortrace!(SV(C), SV(A), p, q, α, β, backend, allocator)
+        stridedtensortrace!(SV(C), SV(A), p′, q, α′, β′)
     end
+
     return C
 end
 
@@ -48,26 +64,59 @@ function tensorcontract!(
         B::AbstractArray, pB::Index2Tuple, conjB::Bool,
         pAB::Index2Tuple,
         α::Number, β::Number,
-        backend::StridedBackend, allocator = DefaultAllocator()
+        backend::StridedBLAS, allocator = DefaultAllocator()
     )
+    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+
+    (Base.mightalias(C, A) || Base.mightalias(C, B)) &&
+        throw(ArgumentError("output tensor must not be aliased with input tensor"))
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
     # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
     if conjA && conjB
-        stridedtensorcontract!(
-            SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB′, α′, β′, backend, allocator)
     elseif conjA
-        stridedtensorcontract!(
-            SV(C), conj(SV(A)), pA, SV(B), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), conj(SV(A)), pA, SV(B), pB, pAB′, α′, β′, backend, allocator)
     elseif conjB
-        stridedtensorcontract!(
-            SV(C), SV(A), pA, conj(SV(B)), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), SV(A), pA, conj(SV(B)), pB, pAB′, α′, β′, backend, allocator)
     else
-        stridedtensorcontract!(
-            SV(C), SV(A), pA, SV(B), pB, pAB, α, β, backend, allocator
-        )
+        blas_contract!(SV(C), SV(A), pA, SV(B), pB, pAB′, α′, β′, backend, allocator)
     end
+
+    return C
+end
+
+function tensorcontract!(
+        C::AbstractArray,
+        A::AbstractArray, pA::Index2Tuple, conjA::Bool,
+        B::AbstractArray, pB::Index2Tuple, conjB::Bool,
+        pAB::Index2Tuple,
+        α::Number, β::Number,
+        backend::StridedNative, allocator = DefaultAllocator()
+    )
+    @nospecialize backend allocator
+
+    # standardize input types for compilation time
+    α′ = standardize_scalartype(C, α)
+    β′ = standardize_scalartype(C, β)
+    pAB′ = linearize(pAB)
+
+    # resolve conj flags and absorb into StridedView constructor to avoid type instabilities later on
+    if conjA && conjB
+        stridedtensorcontract!(SV(C), conj(SV(A)), pA, conj(SV(B)), pB, pAB′, α′, β′)
+    elseif conjA
+        stridedtensorcontract!(SV(C), conj(SV(A)), pA, SV(B), pB, pAB′, α′, β′)
+    elseif conjB
+        stridedtensorcontract!(SV(C), SV(A), pA, conj(SV(B)), pB, pAB′, α′, β′)
+    else
+        stridedtensorcontract!(SV(C), SV(A), pA, SV(B), pB, pAB′, α′, β′)
+    end
+
     return C
 end
 
@@ -83,40 +132,34 @@ end
 (s::Scaler)(x, y) = scale(x * y, s.α)
 
 function stridedtensoradd!(
-        C::StridedView,
-        A::StridedView, pA::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedBackend, allocator = DefaultAllocator()
+        C::StridedView, A::StridedView, pA::IndexTuple, α::Number, β::Number,
     )
     argcheck_tensoradd(C, A, pA)
     dimcheck_tensoradd(C, A, pA)
-    if !istrivialpermutation(pA) && Base.mightalias(C, A)
+    !istrivialpermutation(pA) && Base.mightalias(C, A) &&
         throw(ArgumentError("output tensor must not be aliased with input tensor"))
+    Ap = permutedims(A, pA)
+    if iszero(β)
+        Strided._mapreducedim!(Scaler(α), nothing, nothing, size(C), (C, Ap))
+    else
+        Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), size(C), (C, Ap))
     end
-
-    A′ = permutedims(A, linearize(pA))
-    Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), size(C), (C, A′))
     return C
 end
 
 function stridedtensortrace!(
-        C::StridedView,
-        A::StridedView, p::Index2Tuple, q::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedBackend, allocator = DefaultAllocator()
+        C::StridedView, A::StridedView, p::IndexTuple, q::Index2Tuple, α::Number, β::Number,
     )
     argcheck_tensortrace(C, A, p, q)
     dimcheck_tensortrace(C, A, p, q)
-
     Base.mightalias(C, A) &&
         throw(ArgumentError("output tensor must not be aliased with input tensor"))
-
-    sizeA = i -> size(A, i)
-    strideA = i -> stride(A, i)
-    tracesize = sizeA.(q[1])
-    newstrides = (strideA.(linearize(p))..., (strideA.(q[1]) .+ strideA.(q[2]))...)
-    newsize = (size(C)..., tracesize...)
-
+    newsize = linearize(size(C), TupleTools.getindices(size(A), q[1]))
+    stA = strides(A)
+    newstrides = linearize(
+        TupleTools.getindices(stA, p),
+        TupleTools.getindices(stA, q[1]) .+ TupleTools.getindices(stA, q[2])
+    )
     A′ = SV(A.parent, newsize, newstrides, A.offset, A.op)
     Strided._mapreducedim!(Scaler(α), Adder(), Scaler(β), newsize, (C, A′))
     return C
@@ -126,15 +169,10 @@ function stridedtensorcontract!(
         C::StridedView,
         A::StridedView, pA::Index2Tuple,
         B::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple,
+        pAB::IndexTuple,
         α::Number, β::Number,
-        backend::StridedBLAS, allocator = DefaultAllocator()
+        backend::StridedBLAS, allocator
     )
-    argcheck_tensorcontract(C, A, pA, B, pB, pAB)
-    dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
-
-    (Base.mightalias(C, A) || Base.mightalias(C, B)) &&
-        throw(ArgumentError("output tensor must not be aliased with input tensor"))
 
     blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     return C
@@ -144,9 +182,8 @@ function stridedtensorcontract!(
         C::StridedView,
         A::StridedView, pA::Index2Tuple,
         B::StridedView, pB::Index2Tuple,
-        pAB::Index2Tuple,
-        α::Number, β::Number,
-        ::StridedNative, allocator = DefaultAllocator()
+        pAB::IndexTuple,
+        α::Number, β::Number
     )
     argcheck_tensorcontract(C, A, pA, B, pB, pAB)
     dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
@@ -164,7 +201,7 @@ function stridedtensorcontract!(
         (one.(osizeA)..., osizeB..., csizeB...)
     )
     CS = sreshape(
-        permutedims(C, invperm(linearize(pAB))),
+        permutedims(C, invperm(pAB)),
         (osizeA..., osizeB..., one.(csizeA)...)
     )
     tsize = (osizeA..., osizeB..., csizeA...)
