@@ -167,7 +167,7 @@ TensorOperations.CUDAAllocator
 TensorOperations.CUDABufferAllocator
 ```
 
-Alternatively, the `BufferAllocator` can also be used with the `cuTENSORBackend()`, by backing it with CUDA memory:
+Alternatively, the `CUDABufferAllocator` can also be used with the `cuTENSORBackend()`. This is simply a `BufferAllocator` backed by CUDA memory:
 
 ```julia
 using TensorOperations, cuTENSOR
