@@ -51,7 +51,7 @@ using LinearAlgebra
     end
 
     @testset "Buffer sizes" begin
-        P = Sys.PAGESIZE
+        P = TensorOperations._pagesize()
 
         # below a page, sizes are rounded up to a power of two
         @test length(BufferAllocator(; sizehint = 0)) == 0
@@ -67,6 +67,14 @@ using LinearAlgebra
         resize!(buffer, 2^20 + 1)
         @test length(buffer) == cld(2^20 + 1, P) * P
         @test length(buffer) < 2^21
+
+        # sizes are normalized to `Int`, whatever integer type they are computed from:
+        # the storage constructors do not accept e.g. the `Int32` that `Clong` is on Windows
+        @test TensorOperations._pagesize() isa Int
+        @test TensorOperations._buffersz(Int32(100)) === 128
+        @test TensorOperations._buffersz(UInt(10P + 1)) === 11P
+        @test length(BufferAllocator(; sizehint = Int32(100))) == 128
+        @test length(BufferAllocator(; sizehint = UInt(100))) == 128
     end
 
     @testset "Checkpoint and reset" begin

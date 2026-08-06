@@ -104,13 +104,23 @@ end
 const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
 BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
 
+# `Sys.PAGESIZE` only exists on sufficiently recent Julia versions; fall back on the standard
+# page size otherwise, as this only serves as a granularity for rounding buffer sizes.
+# Note the conversion to `Int`: the underlying `Clong` is 32 bits wide on Windows.
+@static if isdefined(Sys, :PAGESIZE)
+    _pagesize() = Int(Sys.PAGESIZE)
+else
+    _pagesize() = 4096
+end
+
 # Allocate buffers in sizes that are a multiple of the page size.
 # Below a single page, powers of two are used instead, as rounding every small buffer up to a full page would be wasteful.
+# The result is always an `Int`, as that is what the storage constructors expect.
 function _buffersz(x::Integer)
-    iszero(x) && return x
-    pagesize = Sys.PAGESIZE
-    x ≤ pagesize && return Base.nextpow(2, x)
-    return cld(x, pagesize) * pagesize
+    iszero(x) && return 0
+    pagesize = _pagesize()
+    x ≤ pagesize && return Int(Base.nextpow(2, x))
+    return Int(cld(x, pagesize) * pagesize)
 end
 
 # ------------------------------------------------------------------------------------------
