@@ -576,6 +576,32 @@ if cuTENSOR.functional()
         end
     end
 
+    @testset "tensortrace! does not leak plans" begin
+        # `plan_trace` builds a `CuTensorPlan` whose reduction workspace is 128 KiB, and the
+        # plan-taking `cuTENSOR.reduce!` does not free it. Without an explicit
+        # `unsafe_free!` the workspace is only reclaimed by the finalizer, which the GC has
+        # no reason to run promptly for device memory: 10^4 traces leaked over 1 GiB.
+        A = CuArray(randn(Float32, 64, 64, 64, 64))
+        C = CUDACore.zeros(Float32, 64, 64)
+        @tensor C[a, b] = A[a, c, b, c] # warm up
+
+        GC.gc(true)
+        CUDACore.reclaim()
+        CUDACore.synchronize()
+        GC.enable(false)
+        try
+            live0 = CUDACore.memory_stats().live
+            for _ in 1:1000
+                @tensor C[a, b] = A[a, c, b, c]
+            end
+            CUDACore.synchronize()
+            # the leak was exactly 128 KiB per call, i.e. 125 MiB here
+            @test CUDACore.memory_stats().live - live0 < 2^20
+        finally
+            GC.enable(true)
+        end
+    end
+
     @testset "Issues" verbose = true begin
         @testset "Issue PR #186" begin
             # https://github.com/Jutho/TensorOperations.jl/pull/186

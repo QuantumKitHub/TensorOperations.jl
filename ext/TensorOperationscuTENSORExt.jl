@@ -219,8 +219,17 @@ function TO.tensortrace!(
     opA = tensorop(A, conjA)
 
     # map to reduction operation
+    # NOTE: the plan-taking `reduce!` does not free the plan, so we have to do it ourselves.
+    # This mirrors what the planless `cuTENSOR.reduce!` does, and matters here because the
+    # reduction workspace is sizeable (128 KiB) and would otherwise only be reclaimed by the
+    # finalizer, which the GC has no reason to run promptly for device memory.
     plan = plan_trace(A, Ainds, opA, C, Cinds, OP_IDENTITY, OP_ADD)
-    return reduce!(plan, α, A, β, C)
+    try
+        reduce!(plan, α, A, β, C)
+    finally
+        CUDACore.unsafe_free!(plan)
+    end
+    return C
 end
 
 function cuTENSOR.CuTensorDescriptor(
@@ -290,10 +299,13 @@ function plan_trace(
     plan_pref = Ref{cutensorPlanPreference_t}()
     cutensorCreatePlanPreference(handle(), plan_pref, algo, jit)
 
-    plan = CuTensorPlan(desc[], plan_pref[]; workspacePref = workspace)
-    cuTENSOR.cutensorDestroyOperationDescriptor(desc[])
-    cuTENSOR.cutensorDestroyPlanPreference(plan_pref[])
-    return plan
+    return try
+        CuTensorPlan(desc[], plan_pref[]; workspacePref = workspace)
+    finally
+        # these are no longer needed once the plan exists, and would leak if it does not
+        cuTENSOR.cutensorDestroyOperationDescriptor(desc[])
+        cuTENSOR.cutensorDestroyPlanPreference(plan_pref[])
+    end
 end
 
 end
