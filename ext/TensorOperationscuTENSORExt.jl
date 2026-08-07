@@ -220,7 +220,9 @@ function TO.tensortrace!(
 
     # map to reduction operation
     plan = plan_trace(A, Ainds, opA, C, Cinds, OP_IDENTITY, OP_ADD)
-    return reduce!(plan, α, A, β, C)
+    reduce!(plan, α, A, β, C)
+    CUDACore.unsafe_free!(plan) # the plan-taking `reduce!` does not free the plan
+    return C
 end
 
 function cuTENSOR.CuTensorDescriptor(
