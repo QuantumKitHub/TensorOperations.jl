@@ -38,6 +38,22 @@ Allocator that uses the AMD memory manager and will thus allocate `ROCArray` ins
 struct AMDAllocator end
 
 """
+    CUDABufferAllocator(; sizehint = 0, memory = CUDA.default_memory)
+
+Convenience constructor for a [`BufferAllocator`](@ref) that is backed by CUDA memory, and
+which will thus hand out `CuArray` instances that are carved out of a single pre-allocated
+buffer. The `memory` keyword can be any of the CUDA.jl memory types, i.e.
+`CUDA.DeviceMemory`, `CUDA.UnifiedMemory` or `CUDA.HostMemory`, and determines both where the
+buffer itself lives and in which memory space the temporary tensors will be located.
+
+This requires `CUDACore` to be loaded, and is equivalent to spelling out the storage type as
+`BufferAllocator{CuArray{UInt8, 1, memory}}(; sizehint)`.
+
+See also [`TensorOperations.BufferAllocator`](@ref) and [`TensorOperations.CUDAAllocator`](@ref).
+"""
+function CUDABufferAllocator end
+
+"""
     ManualAllocator()
 
 Allocator that bypasses Julia's memory management for temporary tensors by leveraging `Libc.malloc`
@@ -50,12 +66,20 @@ struct ManualAllocator end
 
 """
     BufferAllocator(; sizehint = 0)
+    BufferAllocator{Storage}(; sizehint = 0)
 
 Allocator that uses a pre-allocated buffer for storing temporary tensors.
 When the buffer is full, the allocator falls back on Julia's default allocation mechanism
 to create temporary tensors, but keeps track of how much additional memory is required.
 When the buffer is fully reset, the buffer is automatically resized to ensure subsequent
 contractions will now fit in the buffer.
+
+The optional type parameter `Storage` determines the container that backs the buffer, and
+must have single-byte elements. It defaults to `Memory{UInt8}` (or `Vector{UInt8}` on Julia
+versions without `Memory`), which hands out regular `Array` temporaries. Other storage types
+can be supported by implementing [`TensorOperations.buffer_arraytype`](@ref) and
+[`TensorOperations.unsafe_buffer_wrap`](@ref); in particular, `CuArray`-backed buffers are
+supported through [`TensorOperations.CUDABufferAllocator`](@ref).
 
 !!! warning
     This allocator is **not** thread-safe, and it is the user's responsibility to avoid running
@@ -80,8 +104,24 @@ end
 const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
 BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
 
-# allocate buffers in sizes that are powers of 2
-_buffersz(x::Integer) = iszero(x) ? x : Base.nextpow(2, x)
+# `Sys.PAGESIZE` only exists on sufficiently recent Julia versions; fall back on the standard
+# page size otherwise, as this only serves as a granularity for rounding buffer sizes.
+# Note the conversion to `Int`: the underlying `Clong` is 32 bits wide on Windows.
+@static if isdefined(Sys, :PAGESIZE)
+    _pagesize() = Int(Sys.PAGESIZE)
+else
+    _pagesize() = 4096
+end
+
+# Allocate buffers in sizes that are a multiple of the page size.
+# Below a single page, powers of two are used instead, as rounding every small buffer up to a full page would be wasteful.
+# The result is always an `Int`, as that is what the storage constructors expect.
+function _buffersz(x::Integer)
+    iszero(x) && return 0
+    pagesize = _pagesize()
+    x ≤ pagesize && return Int(Base.nextpow(2, x))
+    return Int(cld(x, pagesize) * pagesize)
+end
 
 # ------------------------------------------------------------------------------------------
 # Generic implementation
@@ -270,26 +310,87 @@ end
 allocation_size(::Type{T}, structure::Base.Dims) where {T} = prod(structure) * sizeof(T)
 allocation_size(::Type{T}, structure::Int) where {T} = structure * sizeof(T)
 
+"""
+    buffer_alignment(buffer::BufferAllocator)
+
+The alignment, in bytes, to which the temporaries handed out by `buffer` are padded.
+This has to be a power of two, and currently there is no point in making it larger
+than the alignment of the buffer's own base pointer, as the padding would then not
+actually buy any alignment.
+
+Defaults to `16`, which is the alignment that Julia guarantees for its allocations,
+and which covers the natural alignment of all standard element types.
+
+See also [`TensorOperations.buffer_arraytype`](@ref).
+"""
+buffer_alignment(::BufferAllocator) = 16
+
+# round `offset` up to the next multiple of `alignment`, which has to be a power of 2
+function _alignup(offset::Integer, alignment::Integer)
+    a = oftype(offset, alignment)
+    return (offset + a - one(a)) & ~(a - one(a))
+end
+
+"""
+    buffer_arraytype(::Type{A}, buffer::BufferAllocator)
+
+Return the concrete array type that is used to serve a temporary allocation of type `A` from
+`buffer`, or `nothing` if `buffer` cannot back arrays of type `A`, in which case the regular
+allocation path is used instead. This only depends on the types involved, such that the
+choice is resolved at compile time.
+
+See also [`TensorOperations.unsafe_buffer_wrap`](@ref).
+"""
+function buffer_arraytype(::Type{A}, ::BufferAllocator) where {A <: AbstractArray}
+    return A <: Array ? A : nothing
+end
+
+"""
+    unsafe_buffer_wrap(::Type{A}, buffer::BufferAllocator, start, structure) -> A
+
+Wrap the memory of `buffer`, starting at byte offset `start`, into an array of type `A` with
+shape `structure`. Here, `A` is the type returned by
+[`TensorOperations.buffer_arraytype`](@ref), and it is the caller's responsibility to ensure
+that the requested range actually fits within the buffer.
+"""
+function unsafe_buffer_wrap(
+        ::Type{A}, buffer::BufferAllocator, start, structure
+    ) where {A <: Array}
+    ptr = convert(Ptr{eltype(A)}, pointer(buffer, start))
+    return Base.unsafe_wrap(Array, ptr, structure)
+end
+
 function tensoralloc(
         ::Type{A}, structure, ::Val{istemp}, buffer::BufferAllocator
     ) where {A <: AbstractArray, istemp}
-    if istemp
-        T = eltype(A)
-        offset = buffer.offset + allocation_size(T, structure)
-        sizehint!(buffer, offset)
+    AA = buffer_arraytype(A, buffer)
+    if istemp && AA !== nothing
+        T = eltype(AA)
+        nbytes = allocation_size(T, structure)
+        if !iszero(nbytes) # empty temporaries have no meaningful pointer
+            alignment = max(Base.datatype_alignment(T), buffer_alignment(buffer))
+            start = _alignup(buffer.offset, alignment)
+            offset = start + nbytes
+            sizehint!(buffer, offset)
 
-        # grow buffer if empty
-        isempty(buffer) && resize!(buffer, buffer.max_offset)
+            # grow buffer if empty: this should never shrink the buffer, as that would
+            # discard the size that was requested through `sizehint` or `resize!`
+            if isempty(buffer) && buffer.max_offset > length(buffer)
+                resize!(buffer, buffer.max_offset)
+            end
 
-        # Use pointer if there is enough space
-        if offset < length(buffer)
-            ptr = convert(Ptr{T}, pointer(buffer, buffer.offset))
-            buffer.offset = offset
-            return Base.unsafe_wrap(Array, ptr, structure)
+            # Use pointer if there is enough space
+            if offset <= length(buffer)
+                buffer.offset = offset
+                return unsafe_buffer_wrap(AA, buffer, start, structure)
+            end
         end
+
+        # Allocate in the same memory space as the buffer if it does not fit
+        return AA(undef, structure)
     end
 
-    # Allocate default if not
+    # Allocate default if the buffer cannot back this type of array
     return A(undef, structure)
 end
 

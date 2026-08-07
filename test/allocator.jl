@@ -27,7 +27,7 @@ using LinearAlgebra
         @test buffer3 isa BufferAllocator{Vector{UInt8}}
         @test length(buffer3) >= 512
 
-        # sizehint! grows to next power-of-two elements (UInt8)
+        # buffers smaller than a page are rounded up to a power of two (UInt8 elements)
         resize!(buffer, 3000)
         @test length(buffer) == 4096
         @test isempty(buffer)
@@ -48,6 +48,33 @@ using LinearAlgebra
         # sizehint! does not shrink when shrink=false
         sizehint!(buffer, 512)
         @test buffer.max_offset == 1024
+    end
+
+    @testset "Buffer sizes" begin
+        P = TensorOperations._pagesize()
+
+        # below a page, sizes are rounded up to a power of two
+        @test length(BufferAllocator(; sizehint = 0)) == 0
+        @test length(BufferAllocator(; sizehint = 100)) == 128
+        @test length(BufferAllocator(; sizehint = P)) == P
+
+        # above a page, sizes are rounded up to a multiple of a page, and not all the way
+        # up to the next power of two
+        @test length(BufferAllocator(; sizehint = P + 1)) == 2P
+        @test length(BufferAllocator(; sizehint = 10P + 1)) == 11P
+        buffer = BufferAllocator(; sizehint = 4P + 123)
+        @test length(buffer) == 5P
+        resize!(buffer, 2^20 + 1)
+        @test length(buffer) == cld(2^20 + 1, P) * P
+        @test length(buffer) < 2^21
+
+        # sizes are normalized to `Int`, whatever integer type they are computed from:
+        # the storage constructors do not accept e.g. the `Int32` that `Clong` is on Windows
+        @test TensorOperations._pagesize() isa Int
+        @test TensorOperations._buffersz(Int32(100)) === 128
+        @test TensorOperations._buffersz(UInt(10P + 1)) === 11P
+        @test length(BufferAllocator(; sizehint = Int32(100))) == 128
+        @test length(BufferAllocator(; sizehint = UInt(100))) == 128
     end
 
     @testset "Checkpoint and reset" begin

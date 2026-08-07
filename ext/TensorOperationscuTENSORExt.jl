@@ -120,6 +120,9 @@ function TO.tensortrace!(
 end
 
 _custrided(A::AbstractArray, ::DefaultAllocator) = _custrided(A, CUDAAllocator())
+# input tensors are marshalled to the device in the same way as for the default allocator:
+# the buffer is reserved for the temporaries that are created by the tensor operations
+_custrided(A::AbstractArray, ::TO.BufferAllocator) = _custrided(A, CUDAAllocator())
 function _custrided(
         A::AbstractArray, allocator::CUDAAllocator{Mout, Min, Mtemp}
     ) where {Mout, Min, Mtemp}

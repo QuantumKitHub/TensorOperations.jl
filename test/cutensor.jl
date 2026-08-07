@@ -13,6 +13,9 @@ if cuTENSOR.functional()
     using LinearAlgebra: norm
     using TensorOperations: IndexError
     using TensorOperations: cuTENSORBackend, CUDAAllocator
+    using TensorOperations: BufferAllocator, CUDABufferAllocator
+    using TensorOperations: tensoralloc, tensorfree!
+    using TensorOperations: allocator_checkpoint!, allocator_reset!
 
     @testset "elementary operations" verbose = true begin
         @testset "tensorcopy" begin
@@ -170,6 +173,243 @@ if cuTENSOR.functional()
                     conj(A1[a', t, b']) * conj(A2[b', t', c'])
             end
             @test E1 ≈ E2 ≈ E3
+        end
+    end
+
+    @testset "BufferAllocator" verbose = true begin
+        DeviceMemory = CUDACore.DeviceMemory
+        UnifiedMemory = CUDACore.UnifiedMemory
+
+        # is the memory of `A` taken from `buffer`?
+        function isbufferbacked(A, buffer)
+            iszero(length(buffer)) && return false
+            base = UInt(pointer(buffer))
+            return base ≤ UInt(pointer(A)) < base + length(buffer)
+        end
+
+        @testset "Constructor and basic properties" begin
+            buffer = CUDABufferAllocator(; sizehint = 1024)
+            @test buffer isa BufferAllocator{CuArray{UInt8, 1, CUDACore.default_memory}}
+            @test length(buffer) == 1024
+            @test isempty(buffer)
+            @test buffer.offset == 0
+
+            # explicit memory space
+            buffer2 = CUDABufferAllocator(; sizehint = 512, memory = UnifiedMemory)
+            @test buffer2 isa BufferAllocator{CuArray{UInt8, 1, UnifiedMemory}}
+            @test buffer2 isa
+                typeof(BufferAllocator{CuArray{UInt8, 1, UnifiedMemory}}(; sizehint = 512))
+            @test length(buffer2) == 512
+
+            # resizing frees the old buffer and allocates a new one
+            resize!(buffer, 3000)
+            @test length(buffer) == 4096
+            @test isempty(buffer)
+            buffer.offset = 100
+            @test_throws ErrorException resize!(buffer, 8192)
+            empty!(buffer)
+            @test length(resize!(buffer, 8192)) == 8192
+        end
+
+        @testset "tensoralloc" begin
+            buffer = CUDABufferAllocator(; sizehint = 4096)
+
+            # temporaries are taken from the buffer, in the memory space of the buffer
+            C1 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(true), buffer)
+            @test C1 isa CuArray{Float32, 2, DeviceMemory}
+            @test size(C1) == (8, 8)
+            @test isbufferbacked(C1, buffer)
+            @test buffer.offset == 8 * 8 * sizeof(Float32)
+
+            # non-temporaries are not
+            offset = buffer.offset
+            C2 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(false), buffer)
+            @test C2 isa CuArray{Float32, 2}
+            @test !isbufferbacked(C2, buffer)
+            @test buffer.offset == offset
+
+            # freeing a buffer-backed tensor does not invalidate the buffer
+            ptr1 = pointer(C1)
+            tensorfree!(C1, buffer)
+            allocator_reset!(buffer, 0)
+            C3 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(true), buffer)
+            @test isbufferbacked(C3, buffer)
+            @test pointer(C3) == ptr1
+            fill!(C3, 1.0f0)
+            @test all(isone, collect(C3))
+
+            # unified memory buffers hand out unified memory temporaries
+            ubuffer = CUDABufferAllocator(; sizehint = 4096, memory = UnifiedMemory)
+            C4 = tensoralloc(CuArray{Float64, 1}, (16,), Val(true), ubuffer)
+            @test C4 isa CuArray{Float64, 1, UnifiedMemory}
+            @test isbufferbacked(C4, ubuffer)
+        end
+
+        @testset "storage mismatch falls back" begin
+            # a host buffer cannot back CuArrays
+            hostbuffer = BufferAllocator(; sizehint = 4096)
+            C1 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(true), hostbuffer)
+            @test C1 isa CuArray{Float32, 2}
+            @test hostbuffer.offset == 0
+
+            # a device buffer cannot back Arrays
+            cubuffer = CUDABufferAllocator(; sizehint = 4096)
+            C2 = tensoralloc(Array{Float64, 2}, (8, 8), Val(true), cubuffer)
+            @test C2 isa Array{Float64, 2}
+            @test cubuffer.offset == 0
+        end
+
+        @testset "alignment" begin
+            # cuTENSOR is sensitive to this: it only selects its fastest kernels for
+            # 256-byte aligned data, so every temporary has to be padded to that
+            buffer = CUDABufferAllocator(; sizehint = 8192)
+            @test iszero(UInt(pointer(buffer)) % 256)
+
+            # a deliberately misaligning allocation of 3 bytes
+            C1 = tensoralloc(CuArray{UInt8, 1}, (3,), Val(true), buffer)
+            @test isbufferbacked(C1, buffer)
+            @test buffer.offset == 3
+            for T in (Float32, Float64, ComplexF32, ComplexF64)
+                C2 = tensoralloc(CuArray{T, 1}, (4,), Val(true), buffer)
+                @test isbufferbacked(C2, buffer)
+                @test iszero(UInt(pointer(C2)) % 256)
+            end
+
+            # host buffers stay at the alignment Julia actually guarantees
+            @test TensorOperations.buffer_alignment(BufferAllocator()) == 16
+        end
+
+        @testset "checkpoint and reset" begin
+            buffer = CUDABufferAllocator(; sizehint = 4096)
+            cp0 = allocator_checkpoint!(buffer)
+            @test cp0 == 0
+
+            C1 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(true), buffer)
+            cp1 = allocator_checkpoint!(buffer)
+            @test cp1 > cp0
+            C2 = tensoralloc(CuArray{Float32, 2}, (8, 8), Val(true), buffer)
+            @test pointer(C2) != pointer(C1)
+
+            allocator_reset!(buffer, cp1)
+            @test buffer.offset == cp1
+            @test_throws ArgumentError allocator_reset!(buffer, cp1 + 10)
+
+            allocator_reset!(buffer, cp0)
+            @test isempty(buffer)
+        end
+
+        @testset "tensor network ($T)" for T in
+            (Float32, Float64, ComplexF32, ComplexF64)
+            D1, D2, D3 = 30, 40, 20
+            d1, d2 = 2, 3
+
+            A1 = CuArray(randn(T, D1, d1, D2))
+            A2 = CuArray(randn(T, D2, d2, D3))
+            ρₗ = CuArray(randn(T, D1, D1))
+            ρᵣ = CuArray(randn(T, D3, D3))
+            H = CuArray(randn(T, d1, d2, d1, d2))
+
+            @tensor begin
+                HRAA1[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                    ρᵣ[c', c] * H[s1, s2, t1, t2]
+            end
+
+            buffer = CUDABufferAllocator()
+            @tensor allocator = buffer begin
+                HRAA2[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                    ρᵣ[c', c] * H[s1, s2, t1, t2]
+            end
+            @test HRAA2 isa CuArray{T, 4}
+            @test collect(HRAA2) ≈ collect(HRAA1)
+
+            # all temporaries were reclaimed, and the buffer was actually used
+            @test buffer.offset == 0
+            @test buffer.max_offset > 0
+
+            # The high-water mark only counts the temporaries that actually fit in the
+            # buffer, so it may still grow while the buffer is warming up, but it has to
+            # converge to a fixed size after a couple of contractions.
+            max0 = buffer.max_offset
+            for _ in 1:5
+                @tensor allocator = buffer begin
+                    HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                @test collect(HRAA3) ≈ collect(HRAA1)
+            end
+            max1 = buffer.max_offset
+            @test max1 ≥ max0
+            @test length(buffer) ≥ max1
+
+            for _ in 1:5
+                @tensor allocator = buffer begin
+                    HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                @test collect(HRAA3) ≈ collect(HRAA1)
+            end
+            @test buffer.offset == 0
+            @test buffer.max_offset == max1
+
+            # scalar output
+            @tensor begin
+                E1 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                    H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+            end
+            @tensor allocator = buffer begin
+                E2 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                    H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+            end
+            @test E1 ≈ E2
+            @test buffer.offset == 0
+        end
+
+        @testset "host inputs are promoted to CuArray" begin
+            D1, D2, D3 = 30, 40, 20
+            d1, d2 = 2, 3
+            T = Float64
+
+            A1 = randn(T, D1, d1, D2)
+            A2 = randn(T, D2, d2, D3)
+            ρₗ = randn(T, D1, D1)
+            ρᵣ = randn(T, D3, D3)
+            H = randn(T, d1, d2, d1, d2)
+
+            @tensor begin
+                HRAA1[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                    ρᵣ[c', c] * H[s1, s2, t1, t2]
+            end
+
+            for memory in (DeviceMemory, UnifiedMemory)
+                buffer = CUDABufferAllocator(; memory)
+                @tensor backend = cuTENSORBackend() allocator = buffer begin
+                    HRAA2[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                @test HRAA2 isa CuArray{T, 4}
+                @test collect(HRAA2) ≈ HRAA1
+                @test buffer.offset == 0
+                @test buffer.max_offset > 0
+            end
+        end
+
+        @testset "ncon" begin
+            A = CuArray(randn(Float32, 5, 5))
+            B = CuArray(randn(Float32, 5, 5))
+            C = CuArray(randn(Float32, 5, 5))
+            buffer = CUDABufferAllocator()
+
+            R = ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+            @test R isa CuArray{Float32, 2}
+            @test collect(R) ≈ collect(A) * collect(B) * collect(C)
+            @test buffer.offset == 0
+
+            max1 = buffer.max_offset
+            for _ in 1:5
+                ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+            end
+            @test buffer.offset == 0
+            @test buffer.max_offset == max1
         end
     end
 

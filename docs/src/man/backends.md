@@ -137,6 +137,8 @@ Optionally, it can be useful to use the `ManualAllocator`, as the manual memory 
 In particular in multi-threaded applications, this can sometimes lead to a significant performance improvement.
 On the other hand, for repeated (but thread-safe!) `@tensor` calls, the `BufferAllocator` is a lightweight slab allocator that pre-allocates a buffer for temporaries, falling back to Julia's default if needed.
 Upon repeated use it will automatically resize the buffer to accommodate the requested temporaries, avoiding repeated reallocation.
+The container that backs the buffer is a type parameter, such that the same slab strategy can also be used for other kinds of memory.
+In particular, a `CuArray`-backed buffer, which is constructed through `CUDABufferAllocator`, hands out `CuArray` temporaries that are carved out of a single device allocation, thus avoiding repeated round-trips to the CUDA memory pool.
 
 Finally, users can also opt to use the `Bumper.jl` system, which pre-allocates a slab of memory that can be re-used afterwards.
 This is available through a package extension for `Bumper`.
@@ -162,7 +164,19 @@ with respect to temporaries, as well as input and output tensors.
 
 ```@docs
 TensorOperations.CUDAAllocator
+TensorOperations.CUDABufferAllocator
 ```
+
+Alternatively, the `CUDABufferAllocator` can also be used with the `cuTENSORBackend()`. This is simply a `BufferAllocator` backed by CUDA memory:
+
+```julia
+using TensorOperations, cuTENSOR
+allocator = TensorOperations.CUDABufferAllocator(; sizehint = 2^20)
+@tensor backend = cuTENSORBackend() allocator = allocator A[i,j] := B[i,k] * C[k,j]
+```
+
+Here, all temporaries are taken from the pre-allocated device buffer, which is grown automatically until it is large enough to hold all temporaries of a single `@tensor` block.
+Just like `CUDAAllocator`, this will produce `CuArray` outputs even when the inputs are regular host arrays.
 
 ### Custom Allocators
 
@@ -189,3 +203,12 @@ For allocators that manage reusable buffers or maintain state across multiple co
 
 Here we are guaranteeing that every created checkpoint will be restored, and all temporary allocations that are enclosed within this scope will no longer be accessed.
 Additionally, if multiple checkpoints are created, they will be restored in a first-in-last-out order.
+
+Finally, rather than writing an allocator from scratch, the built-in `BufferAllocator` can be reused with a different kind of storage, by implementing the two methods below.
+The bookkeeping of the buffer itself, i.e. the high-water mark, the automatic resizing and the checkpointing, is then shared with the default implementation.
+
+```@docs
+TensorOperations.buffer_arraytype
+TensorOperations.unsafe_buffer_wrap
+TensorOperations.buffer_alignment
+```
