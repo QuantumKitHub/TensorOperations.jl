@@ -220,11 +220,8 @@ function TO.tensortrace!(
 
     # map to reduction operation
     plan = plan_trace(A, Ainds, opA, C, Cinds, OP_IDENTITY, OP_ADD)
-    try
-        reduce!(plan, α, A, β, C)
-    finally
-        CUDACore.unsafe_free!(plan) # the plan-taking `reduce!` does not free the plan
-    end
+    reduce!(plan, α, A, β, C)
+    CUDACore.unsafe_free!(plan) # the plan-taking `reduce!` does not free the plan
     return C
 end
 
@@ -295,12 +292,10 @@ function plan_trace(
     plan_pref = Ref{cutensorPlanPreference_t}()
     cutensorCreatePlanPreference(handle(), plan_pref, algo, jit)
 
-    return try
-        CuTensorPlan(desc[], plan_pref[]; workspacePref = workspace)
-    finally
-        cuTENSOR.cutensorDestroyOperationDescriptor(desc[])
-        cuTENSOR.cutensorDestroyPlanPreference(plan_pref[])
-    end
+    plan = CuTensorPlan(desc[], plan_pref[]; workspacePref = workspace)
+    cuTENSOR.cutensorDestroyOperationDescriptor(desc[])
+    cuTENSOR.cutensorDestroyPlanPreference(plan_pref[])
+    return plan
 end
 
 end
