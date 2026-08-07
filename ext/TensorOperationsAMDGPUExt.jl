@@ -59,30 +59,8 @@ function TO.AMDBufferAllocator(;
     return TO.BufferAllocator{ROCArray{UInt8, 1, buftype}}(; sizehint)
 end
 
-# AMD buffers can only back `ROCArray`s; the generic implementation already takes care of
-# the converse, i.e. that host buffers can never back `ROCArray`s
-function TO.buffer_arraytype(
-        ::Type{<:ROCArray{T, N}}, ::ROCBufferAllocator{B}
-    ) where {T, N, B}
-    return ROCArray{T, N, B}
-end
-TO.buffer_arraytype(::Type{<:Array}, ::ROCBufferAllocator) = nothing
-
 # HIP allocations are 256-byte aligned; matching that keeps rocBLAS kernel selection identical, at ≤255 bytes of padding
 TO.buffer_alignment(::ROCBufferAllocator) = 256
-
-# Share the buffer's refcounted `DataRef` at a byte offset, as `reshape` does: that keeps the buffer alive, and
-# avoids the `hipPointerGetAttributes` query that `unsafe_wrap` would do per temporary
-function TO.unsafe_buffer_wrap(
-        ::Type{ROCArray{T, N, B}}, buffer::ROCBufferAllocator{B}, start, structure
-    ) where {T, N, B}
-    ref = copy(AMDGPU.GPUArrays.storage(buffer.buffer))
-    return ROCArray{T, N}(ref, _asdims(structure); offset = Int(start))
-end
-
-# `structure` is a shape for arrays, but a bare length is accepted for vectors
-_asdims(structure::Base.Dims) = structure
-_asdims(n::Integer) = (Int(n),)
 
 # mirror the `AMDAllocator` behavior: results and temporaries are `ROCArray`s, even if the inputs are regular host arrays
 function TO.tensoralloc_add(

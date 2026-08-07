@@ -363,6 +363,30 @@ function _alignup(offset::Integer, alignment::Integer)
     return (offset + a - one(a)) & ~(a - one(a))
 end
 
+# the alignment `tensoralloc` pads a temporary of element type `T` to
+_buffer_alignment(::Type{T}, buffer::BufferAllocator) where {T} =
+    max(Base.datatype_alignment(T), buffer_alignment(buffer))
+
+"""
+    buffer_iselementaddressable(::Type{T}, buffer::BufferAllocator)
+
+Whether a temporary with element type `T` can be placed at an arbitrary padded offset in
+`buffer` while addressing that offset as a whole number of elements. This is what backends
+whose arrays carry an element offset rather than a raw pointer need, and it holds exactly
+when `sizeof(T)` divides the alignment the offset is padded to.
+
+Element types for which this fails fall back on a regular allocation, so this is a
+restriction on which temporaries a buffer can serve, never on correctness.
+"""
+function buffer_iselementaddressable(::Type{T}, buffer::BufferAllocator) where {T}
+    sz = sizeof(T)
+    return !iszero(sz) && iszero(_buffer_alignment(T, buffer) % sz)
+end
+
+# `structure` is a shape for arrays, but a bare length is accepted for vectors
+_asdims(structure::Base.Dims) = structure
+_asdims(n::Integer) = (Int(n),)
+
 """
     buffer_arraytype(::Type{A}, buffer::BufferAllocator)
 
@@ -371,10 +395,34 @@ Return the concrete array type that is used to serve a temporary allocation of t
 allocation path is used instead. This only depends on the types involved, such that the
 choice is resolved at compile time.
 
+The default only backs `Array`s, which is what a host buffer can serve. Storages that are
+themselves arrays can use [`TensorOperations.buffer_similartype`](@ref) to answer this
+generically; `TensorOperationsGPUArraysExt` does so for every GPU backend at once.
+
 See also [`TensorOperations.unsafe_buffer_wrap`](@ref).
 """
 function buffer_arraytype(::Type{A}, ::BufferAllocator) where {A <: AbstractArray}
     return A <: Array ? A : nothing
+end
+
+"""
+    buffer_similartype(::Type{A}, buffer::BufferAllocator)
+
+The concrete type `buffer`'s own storage would produce for the element type and rank of `A`,
+or `nothing` if that is not a concrete subtype of `A`. This lets a buffer back exactly the
+arrays of its own storage kind -- a `CuArray` buffer cannot back an `Array` and vice versa --
+without every storage having to spell that out.
+
+Resolved from the types alone, via inference on `similar`, so a storage whose `similar` is
+not inferrable loses buffer backing rather than becoming incorrect. Note that this is only
+meaningful for storages that are arrays of the same kind they hand out: `Memory{UInt8}`, for
+one, stays a `Memory` at rank 1 instead of becoming a `Vector`.
+"""
+function buffer_similartype(::Type{A}, buffer::BufferAllocator) where {A <: AbstractArray}
+    S = Base.promote_op(
+        similar, typeof(buffer.buffer), Type{eltype(A)}, Base.Dims{ndims(A)}
+    )
+    return (isconcretetype(S) && S <: A) ? S : nothing
 end
 
 """
@@ -400,8 +448,7 @@ function tensoralloc(
         T = eltype(AA)
         nbytes = allocation_size(T, structure)
         if !iszero(nbytes) # empty temporaries have no meaningful pointer
-            alignment = max(Base.datatype_alignment(T), buffer_alignment(buffer))
-            start = _alignup(buffer.offset, alignment)
+            start = _alignup(buffer.offset, _buffer_alignment(T, buffer))
             offset = start + nbytes
             sizehint!(buffer, offset)
 

@@ -65,23 +65,9 @@ function TO.CUDABufferAllocator(; sizehint::Integer = 0, memory = CUDACore.defau
     return TO.BufferAllocator{CuArray{UInt8, 1, memory}}(; sizehint)
 end
 
-# CUDA buffers can only back `CuArray`s; the generic implementation already takes care of
-# the converse, i.e. that host buffers can never back `CuArray`s
-function TO.buffer_arraytype(::Type{<:CuArray{T, N}}, ::CuBufferAllocator{M}) where {T, N, M}
-    return CuArray{T, N, M}
-end
-TO.buffer_arraytype(::Type{<:Array}, ::CuBufferAllocator) = nothing
-
 # CUDA allocations are 256-byte aligned, and cuTENSOR selects noticeably faster kernels for 256-byte aligned data.
 # The padding this costs is at most 255 bytes per temporary, which is negligible in comparison.
 TO.buffer_alignment(::CuBufferAllocator) = 256
-
-function TO.unsafe_buffer_wrap(
-        ::Type{CuArray{T, N, M}}, buffer::CuBufferAllocator{M}, start, structure
-    ) where {T, N, M}
-    ptr = convert(CuPtr{T}, pointer(buffer, start))
-    return unsafe_wrap(CuArray{T, N, M}, ptr, structure)
-end
 
 # mirror the `CUDAAllocator` behavior: results and temporaries are `CuArray`s, even if the inputs are regular host arrays
 function TO.tensoralloc_add(
@@ -105,7 +91,7 @@ function TO.tensoralloc_contract(
     return TO.tensoralloc(ttype, structure, istemp, allocator)::ttype
 end
 
-# NOTE: this is a no-op for tensors that are backed by the buffer, as `unsafe_wrap` creates a non-owning reference
+# NOTE: for tensors backed by the buffer this only releases the reference that `unsafe_buffer_wrap` retained
 function TO.tensorfree!(C::CuArray, ::CuBufferAllocator)
     CUDACore.unsafe_free!(C)
     return nothing
