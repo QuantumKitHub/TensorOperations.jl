@@ -26,12 +26,14 @@ Enzyme = "7da242da-08ed-463a-9acd-ee780be4f1d9"
 GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
 JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+TBLIS = "48530278-0828-4a49-9772-0f3830dfa1e9"
 
 [extensions]
 TensorOperationsAMDGPUExt = "AMDGPU"
 TensorOperationsBumperExt = "Bumper"
 TensorOperationsChainRulesCoreExt = "ChainRulesCore"
 TensorOperationsMooncakeExt = "Mooncake"
+TensorOperationsTBLISExt = "TBLIS"
 TensorOperationsCUDACoreExt = "CUDACore"
 TensorOperationsEnzymeExt = "Enzyme"
 TensorOperationsGPUArraysExt = "GPUArrays"
@@ -62,6 +64,7 @@ PtrArrays = "1.2"
 Random = "1"
 Strided = "2.6"
 StridedViews = "0.5"
+TBLIS = "0.3"
 Test = "1"
 TupleTools = "1.6"
 VectorInterface = "0.4.1, 0.5, 0.6"
@@ -84,8 +87,9 @@ JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+TBLIS = "48530278-0828-4a49-9772-0f3830dfa1e9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU", "TBLIS"]

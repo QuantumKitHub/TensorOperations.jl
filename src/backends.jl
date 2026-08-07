@@ -71,6 +71,38 @@ struct StridedBLAS <: AbstractBackend end
 
 const StridedBackend = Union{StridedNative, StridedBLAS}
 
+# TBLIS backend
+#--------------
+"""
+    TBLISBackend()
+
+Backend for tensor operations on strided arrays that is based on the
+[TBLIS](https://github.com/devinamatthews/tblis) library.
+TBLIS performs tensor additions, traces and contractions directly on strided memory, without
+the transpositions and temporaries that a BLAS-based approach requires.
+This backend is only available through a package extension for
+[TBLIS.jl](https://github.com/QuantumKitHub/TBLIS.jl).
+
+TBLIS requires all tensors in a single operation to share one element type, which moreover
+has to be one of `Float32`, `Float64`, `ComplexF32` or `ComplexF64`.
+Arguments that do not meet these requirements, including non-strided arrays, are rejected
+with an `ArgumentError` rather than passed on to another backend.
+
+!!! note
+    Contracting in place trades throughput for memory.
+    On a 16-core node this backend is roughly on par with
+    [`StridedBLAS`](@ref TensorOperations.StridedBLAS) for permuted real contractions and
+    slower for other shapes, but it allocates no permuted temporaries at all.
+
+!!! warning
+    As of `tblis_jll` v1.3, TBLIS has no competitive support for complex element types: its
+    complex contraction kernels run an order of magnitude slower than the corresponding BLAS
+    calls.
+    Prefer [`StridedBLAS`](@ref TensorOperations.StridedBLAS) for complex-valued
+    contractions.
+"""
+struct TBLISBackend <: AbstractBackend end
+
 # CuTENSOR backend
 #-----------------
 """

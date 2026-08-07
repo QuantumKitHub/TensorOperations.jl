@@ -81,6 +81,10 @@ if !is_buildkite
         include("butensor.jl")
     end
 
+    @testset "TBLIS extension" verbose = true begin
+        include("tblis.jl")
+    end
+
     @testset "Polynomials" begin
         include("polynomials.jl")
     end

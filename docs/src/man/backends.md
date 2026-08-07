@@ -64,6 +64,7 @@ TensorOperations.BaseCopy
 TensorOperations.BaseView
 TensorOperations.StridedNative
 TensorOperations.StridedBLAS
+TensorOperations.TBLISBackend
 TensorOperations.cuTENSORBackend
 ```
 
@@ -73,6 +74,26 @@ By default, the `StridedBLAS` backend is used for element types that support BLA
 On the other hand, the `BaseCopy` and `BaseView` backends are used for arrays that are not strided.
 These are designed to be as general as possible, and as a result are not as performant as specific implementations.
 Nevertheless, they can be useful for debugging purposes or for working with custom tensor types that have limited support for methods outside of `Base`.
+
+The `TBLISBackend` routes the primitive operations through the [TBLIS](https://github.com/devinamatthews/tblis) library.
+TBLIS contracts strided tensors in place instead of reshaping them into matrices, and can therefore avoid the intermediate permuted copies that `StridedBLAS` sometimes has to allocate.
+It is opt-in, in the sense that loading `TBLIS.jl` does not change the default backend selection, and it is only available through a package extension for [`TBLIS.jl`](https://github.com/QuantumKitHub/TBLIS.jl):
+
+```julia
+using TensorOperations, TBLIS
+TBLIS.set_num_threads(8)
+@tensor backend = TensorOperations.TBLISBackend() D[a, b, c, d] := A[a, e, c, f] * B[g, d, e] * conj(C[g, f, b])
+```
+
+TBLIS requires all tensors in a single operation to share one element type out of `Float32`, `Float64`, `ComplexF32` and `ComplexF64`.
+Arguments that do not satisfy this, as well as non-strided arrays, are rejected with an `ArgumentError` instead of being passed on to another backend, so that a contraction which cannot actually reach TBLIS is not silently run somewhere else.
+
+Note that contracting in place trades throughput for memory rather than being a free win.
+With BLAS, TBLIS and `Strided.jl` all given the same number of threads, this backend is roughly on par with `StridedBLAS` for permuted real contractions and slower for other shapes, while allocating no permuted temporaries at all.
+
+!!! warning
+    As of `tblis_jll` v1.3, TBLIS has no competitive support for complex element types.
+    Its complex contraction kernels run an order of magnitude slower than the corresponding BLAS calls, so `StridedBLAS` is the better choice for complex-valued contractions.
 
 Finally, we also provide a `cuTENSORBackend` for use with the `cuTENSOR.jl` library, which is a NVidia GPU-accelerated tensor contraction library.
 This backend is only available through a package extension for `cuTENSOR`.
@@ -89,7 +110,7 @@ Users can also define their own backends, to facilitate experimentation with new
 This can be done by defining a new type that is a subtype of `AbstractBackend`, and dispatching on this type in the implementation of the primitive tensor operations.
 In particular, the only required implemented methods are [`tensoradd!`](@ref), [`tensortrace!`](@ref), [`tensorcontract!`](@ref).
 
-For example, [`TensorOperationsTBLIS`](https://github.com/lkdvos/TensorOperationsTBLIS.jl) is a wrapper that provides a backend for tensor contractions using the [TBLIS](https://github.com/devinamatthews/tblis) library.
+For example, the `TBLISBackend` above is implemented in exactly this way, as a package extension that only adds methods for these three functions.
 
 ## Allocators
 
