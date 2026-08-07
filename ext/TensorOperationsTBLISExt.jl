@@ -67,24 +67,24 @@ labels(ein::Tuple{Vararg{Char}}) = String(UInt8[c for c in ein])
 # Argument checking
 #-------------------------------------------------------------------------------------------
 @noinline function throw_eltype(f, tensors)
-    types = join(eltype.(tensors), ", ")
     return throw(
         ArgumentError(
-            "TBLISBackend requires all tensors of $f to share a single element type out of \
-            Float32, Float64, ComplexF32 and ComplexF64, got $types"
+            LazyString(
+                "TBLISBackend requires all tensors of ", f, " to share a single element ",
+                "type out of Float32, Float64, ComplexF32 and ComplexF64, got ",
+                join(eltype.(tensors), ", ")
+            )
         )
     )
 end
 
 @noinline function throw_strided(f, tensors)
     types = join(typeof.(tensors), ", ")
-    return throw(
-        ArgumentError("TBLISBackend requires strided arrays for $f, got $types")
-    )
+    return throw(ArgumentError(lazy"TBLISBackend requires strided arrays for $f, got $types"))
 end
 
 @noinline throw_conj_output(f) = throw(
-    ArgumentError("TBLISBackend cannot write into a conjugated view in $f")
+    ArgumentError(lazy"TBLISBackend cannot write into a conjugated view in $f")
 )
 
 function check_arguments(f, C::AbstractArray, As::AbstractArray...)
@@ -92,6 +92,7 @@ function check_arguments(f, C::AbstractArray, As::AbstractArray...)
     T = eltype(C)
     (T <: TBLISFloat && all(A -> eltype(A) === T, As)) || throw_eltype(f, tensors)
     all(isstrided, tensors) || throw_strided(f, tensors)
+    # `tblis_tensor_add` applies the flag of `C` when reading `β * C` but not when writing back
     isconj(SV(C), false) && throw_conj_output(f)
     return nothing
 end
@@ -171,6 +172,7 @@ function TO.tensorcontract!(
     isconjA = isconj(Av, conjA)
     isconjB = isconj(Bv, conjB)
 
+    # `tblis_tensor_mult` ignores the conjugation flags, so resolve them into the data first
     if isconjA && isconjB
         iszero(β′) || conj!(Cv)
         tblis_mult!(Cv, Av, Bv, einA, einB, einC, conj(α′), conj(β′))
