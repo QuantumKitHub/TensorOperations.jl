@@ -54,6 +54,37 @@ See also [`TensorOperations.BufferAllocator`](@ref) and [`TensorOperations.CUDAA
 function CUDABufferAllocator end
 
 """
+    AMDBufferAllocator(; sizehint = 0, buftype = AMDGPU.Mem.HIPBuffer)
+
+Convenience constructor for a [`BufferAllocator`](@ref) that is backed by AMD memory, and which
+will thus hand out `ROCArray` instances that are carved out of a single pre-allocated buffer.
+The `buftype` keyword can be any of the AMDGPU.jl buffer types, i.e.
+`AMDGPU.Mem.HIPBuffer` or `AMDGPU.Mem.HostBuffer`, and determines both where the buffer itself
+lives and in which memory space the temporary tensors will be located.
+
+This requires `AMDGPU` to be loaded, and is equivalent to spelling out the storage type as
+`BufferAllocator{ROCArray{UInt8, 1, buftype}}(; sizehint)`.
+
+See also [`TensorOperations.BufferAllocator`](@ref) and [`TensorOperations.AMDAllocator`](@ref).
+"""
+function AMDBufferAllocator end
+
+"""
+    JLBufferAllocator(; sizehint = 0)
+
+Convenience constructor for a [`BufferAllocator`](@ref) that is backed by a `JLArray`, and which
+will thus hand out `JLArray` instances that are carved out of a single pre-allocated buffer.
+As `JLArrays` is the reference GPU array implementation, this is mostly useful for testing the
+foreign-storage code paths of `BufferAllocator` without requiring actual GPU hardware.
+
+This requires `JLArrays` to be loaded, and is equivalent to spelling out the storage type as
+`BufferAllocator{JLArray{UInt8, 1}}(; sizehint)`.
+
+See also [`TensorOperations.BufferAllocator`](@ref).
+"""
+function JLBufferAllocator end
+
+"""
     ManualAllocator()
 
 Allocator that bypasses Julia's memory management for temporary tensors by leveraging `Libc.malloc`
@@ -78,8 +109,9 @@ The optional type parameter `Storage` determines the container that backs the bu
 must have single-byte elements. It defaults to `Memory{UInt8}` (or `Vector{UInt8}` on Julia
 versions without `Memory`), which hands out regular `Array` temporaries. Other storage types
 can be supported by implementing [`TensorOperations.buffer_arraytype`](@ref) and
-[`TensorOperations.unsafe_buffer_wrap`](@ref); in particular, `CuArray`-backed buffers are
-supported through [`TensorOperations.CUDABufferAllocator`](@ref).
+[`TensorOperations.unsafe_buffer_wrap`](@ref); in particular, `CuArray`-, `ROCArray`- and
+`JLArray`-backed buffers are supported through [`TensorOperations.CUDABufferAllocator`](@ref),
+[`TensorOperations.AMDBufferAllocator`](@ref) and [`TensorOperations.JLBufferAllocator`](@ref).
 
 !!! warning
     This allocator is **not** thread-safe, and it is the user's responsibility to avoid running

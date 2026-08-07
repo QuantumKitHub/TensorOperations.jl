@@ -138,7 +138,8 @@ In particular in multi-threaded applications, this can sometimes lead to a signi
 On the other hand, for repeated (but thread-safe!) `@tensor` calls, the `BufferAllocator` is a lightweight slab allocator that pre-allocates a buffer for temporaries, falling back to Julia's default if needed.
 Upon repeated use it will automatically resize the buffer to accommodate the requested temporaries, avoiding repeated reallocation.
 The container that backs the buffer is a type parameter, such that the same slab strategy can also be used for other kinds of memory.
-In particular, a `CuArray`-backed buffer, which is constructed through `CUDABufferAllocator`, hands out `CuArray` temporaries that are carved out of a single device allocation, thus avoiding repeated round-trips to the CUDA memory pool.
+In particular, a `CuArray`- or `ROCArray`-backed buffer, which is constructed through `CUDABufferAllocator` or `AMDBufferAllocator`, hands out device-array temporaries that are carved out of a single device allocation, thus avoiding repeated round-trips to the GPU memory pool.
+A `JLArray`-backed buffer is available as well through `JLBufferAllocator`, which is mostly useful for testing since `JLArrays` requires no GPU hardware.
 
 Finally, users can also opt to use the `Bumper.jl` system, which pre-allocates a slab of memory that can be re-used afterwards.
 This is available through a package extension for `Bumper`.
@@ -177,6 +178,26 @@ allocator = TensorOperations.CUDABufferAllocator(; sizehint = 2^20)
 
 Here, all temporaries are taken from the pre-allocated device buffer, which is grown automatically until it is large enough to hold all temporaries of a single `@tensor` block.
 Just like `CUDAAllocator`, this will produce `CuArray` outputs even when the inputs are regular host arrays.
+
+The AMDGPU counterparts are `AMDAllocator`, which allocates every temporary through the AMD memory manager, and `AMDBufferAllocator`, which serves them from a single pre-allocated `ROCArray`:
+
+```@docs
+TensorOperations.AMDAllocator
+TensorOperations.AMDBufferAllocator
+```
+
+```julia
+using TensorOperations, AMDGPU
+allocator = TensorOperations.AMDBufferAllocator(; sizehint = 2^20)
+@tensor allocator = allocator A[i,j] := B[i,k] * C[k,j]
+```
+
+Finally, `JLBufferAllocator` provides the same thing on top of `JLArrays`, the reference GPU array implementation.
+Since it requires no GPU hardware, it is mostly useful to exercise the device-storage code paths in tests:
+
+```@docs
+TensorOperations.JLBufferAllocator
+```
 
 ### Custom Allocators
 
