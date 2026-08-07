@@ -15,17 +15,11 @@ using TBLIS: len_type, stride_type, tblis_tensor
 
 const SV = StridedView
 
-# TBLIS only knows about these four element types, and requires all tensors taking part in a
-# single operation to share it.
 const TBLISFloat = Union{Float32, Float64, ComplexF32, ComplexF64}
 
 #-------------------------------------------------------------------------------------------
 # Wrapping Julia arrays as TBLIS tensors
 #-------------------------------------------------------------------------------------------
-# TBLIS.jl's own `tblis_tensor` constructor is restricted to `StridedArray`, which excludes
-# the `StridedView`s used below, and it has no way to express the conjugation flag. We
-# therefore initialize the descriptor through the low-level bindings and patch in the flag
-# afterwards.
 for (T, init) in (
         (:Float32, :tblis_init_tensor_scaled_s),
         (:Float64, :tblis_init_tensor_scaled_d),
@@ -67,15 +61,11 @@ function tblis_tensor(
     return ref
 end
 
-# TBLIS takes the index labels as one `char` per dimension; `add_labels` and friends hand us
-# `Char` tuples that are guaranteed to be ASCII.
 labels(ein::Tuple{Vararg{Char}}) = String(UInt8[c for c in ein])
 
 #-------------------------------------------------------------------------------------------
 # Argument checking
 #-------------------------------------------------------------------------------------------
-# Rather than quietly handing unsupported arguments to another backend, which would make a
-# `backend = TBLISBackend()` that never reaches TBLIS look like it did, reject them.
 @noinline function throw_eltype(f, tensors)
     types = join(eltype.(tensors), ", ")
     return throw(
@@ -93,10 +83,6 @@ end
     )
 end
 
-# A conjugated output cannot be expressed: TBLIS applies the flag of `C` when reading the
-# `β * C` term but not when writing the result back, so it would conjugate half the
-# operation. Hence `check_arguments` rejects such a `C` and every `C` descriptor below is
-# built unconjugated.
 @noinline throw_conj_output(f) = throw(
     ArgumentError("TBLISBackend cannot write into a conjugated view in $f")
 )
@@ -113,9 +99,6 @@ end
 #-------------------------------------------------------------------------------------------
 # Operations
 #-------------------------------------------------------------------------------------------
-# `tblis_tensor_add` computes `C[einC] = β * C[einC] + α * op(A)[einA]` and does honour the
-# per-tensor conjugation flag. Labels repeated within `einA` but absent from `einC` are traced
-# over, so both `tensoradd!` and `tensortrace!` map onto it directly.
 function TO.tensoradd!(
         C::AbstractArray,
         A::AbstractArray, pA::Index2Tuple, conjA::Bool,
@@ -130,7 +113,6 @@ function TO.tensoradd!(
 
     T = eltype(C)
     einA, einC = add_labels(pA)
-    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Cv = SV(A), SV(C)
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
@@ -156,7 +138,6 @@ function TO.tensortrace!(
 
     T = eltype(C)
     einA, einC = trace_labels(p, q)
-    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Cv = SV(A), SV(C)
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
@@ -186,17 +167,11 @@ function TO.tensorcontract!(
     einA, einB, einC = contract_labels(pA, pB, pAB)
     α′ = convert(T, α)
     β′ = convert(T, β)
-    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Bv, Cv = SV(A), SV(B), SV(C)
     isconjA = isconj(Av, conjA)
     isconjB = isconj(Bv, conjB)
 
-    # `tblis_tensor_mult` silently ignores the conjugation flags of its arguments (verified
-    # against tblis 1.3), so conjugation has to be resolved before calling into it.
     if isconjA && isconjB
-        # conj(A) * conj(B) == conj(A * B), so conjugating the output in place lets both
-        # factors through unconjugated, at the cost of two passes over C. That is much
-        # cheaper than materializing a conjugated copy of both A and B.
         iszero(β′) || conj!(Cv)
         tblis_mult!(Cv, Av, Bv, einA, einB, einC, conj(α′), conj(β′))
         conj!(Cv)
@@ -214,9 +189,6 @@ function TO.tensorcontract!(
     return C
 end
 
-# Shared by the four conjugation branches above, which have already folded any conjugation
-# into the data, so the descriptors are built unconjugated. TBLIS scales the product by the
-# scalars of both factors, so α rides along on A alone.
 function tblis_mult!(
         C::StridedView{T}, A::StridedView{T}, B::StridedView{T},
         einA, einB, einC, α::T, β::T
@@ -235,8 +207,6 @@ function tblis_mult!(
     return C
 end
 
-# Write `α * conj(A)` into a fresh temporary that keeps the index order of `A`, so that the
-# labels computed for `A` remain valid for it and it can be fed to `mult` unconjugated.
 function materialize_conj(
         A::StridedView{T, N}, conjA::Bool, α::T, allocator
     ) where {T <: TBLISFloat, N}
