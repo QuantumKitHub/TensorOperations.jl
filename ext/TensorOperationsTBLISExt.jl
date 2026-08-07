@@ -40,17 +40,8 @@ for (T, init) in (
     end
 end
 
-# Total conjugation to apply to the raw data of `A`: a `StridedView` may already carry one in
-# its `op` field, as it does for an `Adjoint`, and that combines with the one the caller asks
-# for. Conjugation therefore never has to appear in the type of the view, which keeps the
-# callers free of union splits over `conj` variants. For real element types `conj` is the
-# identity and flagging it would only confuse the library.
 isconj(A::StridedView{T}, conjA::Bool) where {T} = T <: Complex && (conjA ⊻ (A.op === conj))
-
-# Lengths and strides in the layout TBLIS expects. The descriptor stores raw pointers into
-# these, so the caller has to keep them alive for as long as TBLIS may look at them.
-tblis_dims(A::StridedView) =
-    (collect(len_type, size(A)), collect(stride_type, strides(A)))
+tblis_dims(A::StridedView) = (collect(len_type, size(A)), collect(stride_type, strides(A)))
 
 """
     tblis_tensor(A::StridedView, α, len, stride, conj) -> Ref{TBLIS.tblis_tensor}
@@ -102,6 +93,10 @@ end
     )
 end
 
+# A conjugated output cannot be expressed: TBLIS applies the flag of `C` when reading the
+# `β * C` term but not when writing the result back, so it would conjugate half the
+# operation. Hence `check_arguments` rejects such a `C` and every `C` descriptor below is
+# built unconjugated.
 @noinline throw_conj_output(f) = throw(
     ArgumentError("TBLISBackend cannot write into a conjugated view in $f")
 )
@@ -118,11 +113,6 @@ end
 #-------------------------------------------------------------------------------------------
 # Operations
 #-------------------------------------------------------------------------------------------
-# The `StridedView` wrapper is what makes the whole range of strided inputs usable here: an
-# `Adjoint` of a complex array has neither `strides` nor `pointer`, and a `ReshapedArray` need
-# not have `strides` either, whereas `StridedView` normalizes all of them and exposes any
-# conjugation as its `op` field. It is also exactly what the `isstrided` check above admits.
-
 # `tblis_tensor_add` computes `C[einC] = β * C[einC] + α * op(A)[einA]` and does honour the
 # per-tensor conjugation flag. Labels repeated within `einA` but absent from `einC` are traced
 # over, so both `tensoradd!` and `tensortrace!` map onto it directly.
@@ -140,6 +130,7 @@ function TO.tensoradd!(
 
     T = eltype(C)
     einA, einC = add_labels(pA)
+    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Cv = SV(A), SV(C)
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
@@ -165,6 +156,7 @@ function TO.tensortrace!(
 
     T = eltype(C)
     einA, einC = trace_labels(p, q)
+    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Cv = SV(A), SV(C)
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
@@ -194,6 +186,7 @@ function TO.tensorcontract!(
     einA, einB, einC = contract_labels(pA, pB, pAB)
     α′ = convert(T, α)
     β′ = convert(T, β)
+    # `SV` supports inputs such as `Adjoint`, which have no `strides` or `pointer` of their own
     Av, Bv, Cv = SV(A), SV(B), SV(C)
     isconjA = isconj(Av, conjA)
     isconjB = isconj(Bv, conjB)

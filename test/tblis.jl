@@ -220,8 +220,6 @@ end
 
 @testset "threading" begin
     nthreads = TBLIS.get_num_threads()
-    # a runner with a single core cannot honour a request for more than one thread, so only
-    # ask for counts it can actually provide
     counts = ntuple(identity, min(2, nthreads))
     try
         A = randn(Float64, (40, 40, 20))
