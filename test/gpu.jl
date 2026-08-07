@@ -28,6 +28,11 @@ AMDGPU.functional() && push!(ATs, ROCArray)
 
 backends = [StridedBLAS(), StridedNative()]
 
+# storage-specific `BufferAllocator` constructor for each of the array types above
+bufferallocator(::Type{JLArray}; kwargs...) = TensorOperations.JLBufferAllocator(; kwargs...)
+bufferallocator(::Type{CuArray}; kwargs...) = TensorOperations.CUDABufferAllocator(; kwargs...)
+bufferallocator(::Type{ROCArray}; kwargs...) = TensorOperations.AMDBufferAllocator(; kwargs...)
+
 @testset "tensoradd! ($AT)" for AT in ATs
     sz = (3, 5, 4, 6)
     p = (3, 1, 4, 2)
@@ -122,4 +127,86 @@ end
         end
     end
 
+end
+
+@testset "BufferAllocator ($AT)" for AT in ATs
+    @testset "tensor network ($T)" for T in (Float32, ComplexF32)
+        D1, D2, D3 = 30, 40, 20
+        d1, d2 = 2, 3
+
+        A1 = adapt(AT, randn(T, D1, d1, D2))
+        A2 = adapt(AT, randn(T, D2, d2, D3))
+        ρₗ = adapt(AT, randn(T, D1, D1))
+        ρᵣ = adapt(AT, randn(T, D3, D3))
+        H = adapt(AT, randn(T, d1, d2, d1, d2))
+
+        @tensor begin
+            HRAA1[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                ρᵣ[c', c] * H[s1, s2, t1, t2]
+        end
+
+        buffer = bufferallocator(AT)
+        @tensor allocator = buffer begin
+            HRAA2[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                ρᵣ[c', c] * H[s1, s2, t1, t2]
+        end
+        @test HRAA2 isa AT{T, 4}
+        @test test_result(HRAA2, HRAA1)
+
+        # all temporaries are reclaimed, and the buffer is actually used
+        @test buffer.offset == 0
+        @test buffer.max_offset > 0
+
+        # the high-water mark only counts temporaries that actually fit, so it may still grow
+        # while the buffer is warming up, but has to converge to a fixed size afterwards
+        for _ in 1:3
+            @tensor allocator = buffer begin
+                HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                    ρᵣ[c', c] * H[s1, s2, t1, t2]
+            end
+            @test test_result(HRAA3, HRAA1)
+        end
+        max1 = buffer.max_offset
+        for _ in 1:3
+            @tensor allocator = buffer begin
+                HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                    ρᵣ[c', c] * H[s1, s2, t1, t2]
+            end
+        end
+        @test buffer.offset == 0
+        @test buffer.max_offset == max1
+        @test length(buffer) ≥ max1
+
+        # scalar output
+        @tensor begin
+            E1 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+        end
+        @tensor allocator = buffer begin
+            E2 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+        end
+        @test E1 ≈ E2
+        @test buffer.offset == 0
+    end
+
+    # chain contraction through `ncon`, which reclaims its temporaries via checkpoints
+    @testset "ncon" begin
+        A = adapt(AT, randn(Float32, 5, 5))
+        B = adapt(AT, randn(Float32, 5, 5))
+        C = adapt(AT, randn(Float32, 5, 5))
+        buffer = bufferallocator(AT)
+
+        R = ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+        @test R isa AT{Float32, 2}
+        @test test_result(R, collect(A) * collect(B) * collect(C))
+        @test buffer.offset == 0
+
+        max1 = buffer.max_offset
+        for _ in 1:3
+            ncon([A, B, C], [[-1, 1], [1, 2], [2, -2]]; allocator = buffer)
+        end
+        @test buffer.offset == 0
+        @test buffer.max_offset == max1
+    end
 end
