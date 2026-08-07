@@ -21,7 +21,8 @@ const JLBuffer = TO.BufferAllocator{JLArray{UInt8, 1}}
 TO.JLBufferAllocator(; sizehint::Integer = 0) =
     TO.BufferAllocator{JLArray{UInt8, 1}}(; sizehint)
 
-# `JLArray`s are addressed by element offset, so `T`s whose size does not divide the alignment cannot be buffer-backed
+# Derived arrays are offset by a whole number of elements, so `T`s whose size does not divide
+# the alignment cannot be buffer-backed
 function _iselementaddressable(::Type{T}, buffer::JLBuffer) where {T}
     sz = sizeof(T)
     alignment = max(Base.datatype_alignment(T), TO.buffer_alignment(buffer))
@@ -35,12 +36,16 @@ function TO.buffer_arraytype(::Type{<:JLArray{T, N}}, buffer::JLBuffer) where {T
 end
 TO.buffer_arraytype(::Type{<:Array}, ::JLBuffer) = nothing
 
-# Share the buffer's refcounted `DataRef` at an element offset, as `reshape` does, so the buffer outlives the temporary
+# `GPUArrays.derive` is the documented backend hook for producing an array of a different type
+# and size backed by the same data, as `reshape` and contiguous `view`s do, so the buffer
+# outlives the temporary. Going through it rather than the `JLArray` constructor keeps this
+# insensitive to whether the offset is stored per element or in bytes.
 function TO.unsafe_buffer_wrap(
         ::Type{JLArray{T, N}}, buffer::JLBuffer, start, structure
     ) where {T, N}
-    ref = copy(JLArrays.GPUArrays.storage(buffer.buffer))
-    return JLArray{T, N}(ref, _asdims(structure); offset = Int(start) ÷ sizeof(T))
+    return JLArrays.GPUArrays.derive(
+        T, buffer.buffer, _asdims(structure), Int(start) ÷ sizeof(T)
+    )
 end
 
 # `structure` is a shape for arrays, but a bare length is accepted for vectors
