@@ -30,6 +30,32 @@ function tensoradd!(
 end
 function tensoradd!(
         C::AbstractArray,
+        A::Diagonal, pA::Index2Tuple, conjA::Bool,
+        α::Number, β::Number,
+        ::BaseView, allocator = DefaultAllocator()
+    )
+    argcheck_tensoradd(C, A, pA)
+    dimcheck_tensoradd(C, A, pA)
+
+    # can we assume that C is mutable?
+    # is there more functionality in base that we can use?
+    if conjA
+        if iszero(β)
+            C .= α .* conj.(A)
+        else
+            C .= β .* C .+ α .* conj.(A)
+        end
+    else
+        if iszero(β)
+            C .= α .* A
+        else
+            C .= β .* C .+ α .* A
+        end
+    end
+    return C
+end
+function tensoradd!(
+        C::AbstractArray,
         A::AbstractArray, pA::Index2Tuple, conjA::Bool,
         α::Number, β::Number,
         ::BaseCopy, allocator = DefaultAllocator()
