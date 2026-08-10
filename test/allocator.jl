@@ -79,6 +79,22 @@ using JLArrays
         @test length(BufferAllocator(; sizehint = UInt(100))) == 128
     end
 
+    @testset "buffer_arraytype" begin
+        # a host buffer serves `Array`s at every rank, whatever its own storage is -- note that
+        # `similar` of the default `Memory` storage stays a `Memory` at rank 1
+        for buffer in (BufferAllocator(), BufferAllocator{Vector{UInt8}}(; sizehint = 1024))
+            for A in (
+                    Vector{Float64}, Matrix{ComplexF64}, Array{Float32, 3},
+                    Vector{NTuple{4, Float64}},
+                )
+                @test TensorOperations.buffer_arraytype(A, buffer) === A
+            end
+            @static if isdefined(Core, :Memory)
+                @test TensorOperations.buffer_arraytype(Memory{Float64}, buffer) === nothing
+            end
+        end
+    end
+
     @testset "Checkpoint and reset" begin
         buffer = BufferAllocator(sizehint = 128)
         L = length(buffer)
@@ -245,17 +261,26 @@ end
             @test iszero(UInt(pointer(C2)) % 16)
         end
 
-        # `JLArray`s address their data by an element offset, which the 16-byte padding can only
-        # express for element types that are at most that large: bigger ones fall back on a
-        # regular allocation rather than silently landing on a truncated offset
+        # `GPUArrays.derive` takes an element offset, so the padding of an element type whose
+        # size does not divide the alignment is a multiple of that size instead: such types are
+        # still served from the buffer, at an offset that survives the conversion to elements
+        # rather than silently truncating onto the previous temporary
         @test TensorOperations.buffer_arraytype(JLArray{ComplexF64, 1}, buffer) ===
             JLArray{ComplexF64, 1}
-        @test TensorOperations.buffer_arraytype(JLArray{NTuple{4, Float64}, 1}, buffer) === nothing
-        offset = buffer.offset
-        C3 = tensoralloc(JLArray{NTuple{4, Float64}, 1}, (4,), Val(true), buffer)
-        @test C3 isa JLArray{NTuple{4, Float64}, 1}
-        @test !isbufferbacked(C3, buffer)
-        @test buffer.offset == offset
+        @test TensorOperations.buffer_arraytype(JLArray{NTuple{4, Float64}, 1}, buffer) ===
+            JLArray{NTuple{4, Float64}, 1}
+        for T in (NTuple{4, Float64}, NTuple{3, Float32})
+            empty!(buffer)
+            C3 = tensoralloc(JLArray{UInt8, 1}, (3,), Val(true), buffer)
+            C4 = tensoralloc(JLArray{T, 1}, (4,), Val(true), buffer)
+            @test isbufferbacked(C4, buffer)
+            start = UInt(pointer(C4)) - UInt(pointer(buffer))
+            @test iszero(start % sizeof(T))
+            @test iszero(start % TensorOperations.buffer_alignment(buffer))
+            # no overlap with the 3 bytes that `C3` occupies
+            @test start ≥ 3
+            @test buffer.offset == start + 4 * sizeof(T)
+        end
     end
 
     @testset "checkpoint and reset" begin

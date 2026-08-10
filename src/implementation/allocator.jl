@@ -345,10 +345,11 @@ allocation_size(::Type{T}, structure::Int) where {T} = structure * sizeof(T)
 """
     buffer_alignment(buffer::BufferAllocator)
 
-The alignment, in bytes, to which the temporaries handed out by `buffer` are padded.
+The minimum alignment, in bytes, to which the temporaries handed out by `buffer` are padded.
 This has to be a power of two, and currently there is no point in making it larger
 than the alignment of the buffer's own base pointer, as the padding would then not
-actually buy any alignment.
+actually buy any alignment. Element types whose size is not a divisor of it are padded
+further, to a multiple of that size as well.
 
 Defaults to `16`, which is the alignment that Julia guarantees for its allocations,
 and which covers the natural alignment of all standard element types.
@@ -357,30 +358,24 @@ See also [`TensorOperations.buffer_arraytype`](@ref).
 """
 buffer_alignment(::BufferAllocator) = 16
 
-# round `offset` up to the next multiple of `alignment`, which has to be a power of 2
+# round `offset` up to the next multiple of `alignment`
 function _alignup(offset::Integer, alignment::Integer)
     a = oftype(offset, alignment)
-    return (offset + a - one(a)) & ~(a - one(a))
+    # the bit trick only holds for powers of two, which `_buffer_alignment` is free not to be
+    ispow2(a) && return (offset + a - one(a)) & ~(a - one(a))
+    return cld(offset, a) * a
 end
 
-# the alignment `tensoralloc` pads a temporary of element type `T` to
-_buffer_alignment(::Type{T}, buffer::BufferAllocator) where {T} =
-    max(Base.datatype_alignment(T), buffer_alignment(buffer))
-
-"""
-    buffer_iselementaddressable(::Type{T}, buffer::BufferAllocator)
-
-Whether a temporary with element type `T` can be placed at an arbitrary padded offset in
-`buffer` while addressing that offset as a whole number of elements. This is what backends
-whose arrays carry an element offset rather than a raw pointer need, and it holds exactly
-when `sizeof(T)` divides the alignment the offset is padded to.
-
-Element types for which this fails fall back on a regular allocation, so this is a
-restriction on which temporaries a buffer can serve, never on correctness.
-"""
-function buffer_iselementaddressable(::Type{T}, buffer::BufferAllocator) where {T}
-    sz = sizeof(T)
-    return !iszero(sz) && iszero(_buffer_alignment(T, buffer) % sz)
+# The alignment `tensoralloc` pads a temporary of element type `T` to: at least the natural
+# alignment of `T` and the alignment the buffer asks for, and always a multiple of `sizeof(T)`
+# on top of that. The latter keeps the byte offset expressible as a whole number of elements,
+# which is how the arrays of some backends carry their offset. For all standard element types
+# `sizeof(T)` already divides the alignment, so this costs no additional padding; it only
+# kicks in for oversized or oddly sized element types, which would otherwise have to fall
+# back on a regular allocation.
+function _buffer_alignment(::Type{T}, buffer::BufferAllocator) where {T}
+    alignment = max(Base.datatype_alignment(T), buffer_alignment(buffer))
+    return iszero(sizeof(T)) ? alignment : lcm(sizeof(T), alignment)
 end
 
 # `structure` is a shape for arrays, but a bare length is accepted for vectors
@@ -395,34 +390,31 @@ Return the concrete array type that is used to serve a temporary allocation of t
 allocation path is used instead. This only depends on the types involved, such that the
 choice is resolved at compile time.
 
-The default only backs `Array`s, which is what a host buffer can serve. Storages that are
-themselves arrays can use [`TensorOperations.buffer_similartype`](@ref) to answer this
-generically; `TensorOperationsGPUArraysExt` does so for every GPU backend at once.
+The default answer is the type that `buffer`'s own storage would produce for the element type
+and rank of `A`, and `nothing` if that is not a concrete subtype of `A`. This lets a buffer
+back exactly the arrays of its own storage kind -- a `CuArray` buffer cannot back an `Array`
+and vice versa -- without every storage having to spell that out, and covers all GPU backends
+at once. It is resolved from the types alone, via inference on `similar`, so a storage whose
+`similar` is not inferrable loses buffer backing rather than becoming incorrect.
 
 See also [`TensorOperations.unsafe_buffer_wrap`](@ref).
 """
-function buffer_arraytype(::Type{A}, ::BufferAllocator) where {A <: AbstractArray}
-    return A <: Array ? A : nothing
-end
-
-"""
-    buffer_similartype(::Type{A}, buffer::BufferAllocator)
-
-The concrete type `buffer`'s own storage would produce for the element type and rank of `A`,
-or `nothing` if that is not a concrete subtype of `A`. This lets a buffer back exactly the
-arrays of its own storage kind -- a `CuArray` buffer cannot back an `Array` and vice versa --
-without every storage having to spell that out.
-
-Resolved from the types alone, via inference on `similar`, so a storage whose `similar` is
-not inferrable loses buffer backing rather than becoming incorrect. Note that this is only
-meaningful for storages that are arrays of the same kind they hand out: `Memory{UInt8}`, for
-one, stays a `Memory` at rank 1 instead of becoming a `Vector`.
-"""
-function buffer_similartype(::Type{A}, buffer::BufferAllocator) where {A <: AbstractArray}
+function buffer_arraytype(::Type{A}, buffer::BufferAllocator) where {A <: AbstractArray}
     S = Base.promote_op(
         similar, typeof(buffer.buffer), Type{eltype(A)}, Base.Dims{ndims(A)}
     )
     return (isconcretetype(S) && S <: A) ? S : nothing
+end
+
+@static if isdefined(Core, :Memory)
+    # `Memory` is the one storage for which `similar` does not answer this: it stays a `Memory`
+    # at rank 1, while the temporaries a `Memory`-backed buffer hands out are `Array`s at every
+    # rank
+    function buffer_arraytype(
+            ::Type{A}, ::BufferAllocator{<:Memory}
+        ) where {A <: AbstractArray}
+        return A <: Array ? A : nothing
+    end
 end
 
 """
@@ -432,6 +424,10 @@ Wrap the memory of `buffer`, starting at byte offset `start`, into an array of t
 shape `structure`. Here, `A` is the type returned by
 [`TensorOperations.buffer_arraytype`](@ref), and it is the caller's responsibility to ensure
 that the requested range actually fits within the buffer.
+
+`start` is guaranteed to be a multiple of `sizeof(eltype(A))`, so an implementation for arrays
+that carry an element offset rather than a pointer can use `start ÷ sizeof(eltype(A))` without
+losing bytes to the division.
 """
 function unsafe_buffer_wrap(
         ::Type{A}, buffer::BufferAllocator, start, structure

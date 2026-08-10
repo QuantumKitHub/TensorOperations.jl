@@ -10,22 +10,13 @@ using TensorOperations: TensorOperations as TO
 
 const GPUBufferAllocator = TO.BufferAllocator{<:AbstractGPUArray}
 
-# A GPU buffer backs exactly the arrays its own storage produces, which `buffer_similartype`
-# answers for every backend at once. A derived array can only be offset by a whole number of
-# elements, so additionally restrict to element types for which the padded offset is
-# expressible that way.
-function TO.buffer_arraytype(
-        ::Type{A}, buffer::GPUBufferAllocator
-    ) where {A <: AbstractArray}
-    TO.buffer_iselementaddressable(eltype(A), buffer) || return nothing
-    return TO.buffer_similartype(A, buffer)
-end
-
 # `GPUArrays.derive` is the documented backend hook for producing an array of a different
 # type and size backed by the same data, and is what `reshape` and contiguous `view`s go
 # through. Sharing the buffer's refcounted storage keeps it alive for as long as the
 # temporary is, and going through `derive` rather than a backend's own constructor or
 # `unsafe_wrap` keeps this insensitive to how a backend represents the offset internally.
+# The offset `derive` takes is counted in elements, which the padding that `tensoralloc`
+# applies guarantees the byte offset to be a whole number of.
 function TO.unsafe_buffer_wrap(
         ::Type{A}, buffer::GPUBufferAllocator, start, structure
     ) where {A <: AbstractGPUArray}
