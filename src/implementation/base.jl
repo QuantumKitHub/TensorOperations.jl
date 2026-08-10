@@ -32,7 +32,7 @@ function tensoradd!(
         C::AbstractArray,
         A::Diagonal, pA::Index2Tuple, conjA::Bool,
         α::Number, β::Number,
-        ::BaseView, allocator = DefaultAllocator()
+        backend, allocator = DefaultAllocator()
     )
     argcheck_tensoradd(C, A, pA)
     dimcheck_tensoradd(C, A, pA)
