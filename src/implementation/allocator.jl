@@ -108,8 +108,8 @@ contractions will now fit in the buffer.
 The optional type parameter `Storage` determines the container that backs the buffer, and
 must have single-byte elements. It defaults to `Memory{UInt8}` (or `Vector{UInt8}` on Julia
 versions without `Memory`), which hands out regular `Array` temporaries. Other storage types
-can be supported by implementing [`TensorOperations.buffer_arraytype`](@ref) and
-[`TensorOperations.unsafe_buffer_wrap`](@ref); in particular, `CuArray`-, `ROCArray`- and
+can be supported by implementing [`TensorOperations.unsafe_buffer_wrap`](@ref);
+in particular, `CuArray`-, `ROCArray`- and
 `JLArray`-backed buffers are supported through [`TensorOperations.CUDABufferAllocator`](@ref),
 [`TensorOperations.AMDBufferAllocator`](@ref) and [`TensorOperations.JLBufferAllocator`](@ref).
 
@@ -135,6 +135,9 @@ end
 
 const DefaultStorageType = @static isdefined(Core, :Memory) ? Memory{UInt8} : Vector{UInt8}
 BufferAllocator(; kwargs...) = BufferAllocator{DefaultStorageType}(; kwargs...)
+
+# storages whose `pointer` is a host pointer, so that an `Array` can be wrapped around it
+const HostStorageType = @static isdefined(Core, :Memory) ? Union{Memory, Array} : Array
 
 # `Sys.PAGESIZE` only exists on sufficiently recent Julia versions; fall back on the standard
 # page size otherwise, as this only serves as a granularity for rounding buffer sizes.
@@ -386,28 +389,17 @@ Return the concrete array type that is used to serve a temporary allocation of t
 allocation path is used instead. This only depends on the types involved, such that the
 choice is resolved at compile time.
 
-The default answer is the type `buffer`'s own storage would produce for the element type and
-rank of `A`, as inferred from `similar`, and `nothing` if that is not a concrete subtype of
-`A`: a buffer backs exactly the arrays of its own storage kind, which covers all GPU backends
-at once. A storage whose `similar` is not inferrable loses buffer backing rather than
-becoming incorrect.
-
-See also [`TensorOperations.unsafe_buffer_wrap`](@ref).
+The default answer is inferred from [`TensorOperations.unsafe_buffer_wrap`](@ref): the type
+that wrapping `buffer`'s memory actually produces, or `nothing` if that is not a concrete
+subtype of `A`, which includes the case where no method applies. A storage therefore only has
+to implement `unsafe_buffer_wrap` for its arrays to be served from the buffer, and one whose
+wrap is not inferrable loses buffer backing rather than becoming incorrect.
 """
 function buffer_arraytype(::Type{A}, buffer::BufferAllocator) where {A <: AbstractArray}
     S = Base.promote_op(
-        similar, typeof(buffer.buffer), Type{eltype(A)}, Base.Dims{ndims(A)}
+        unsafe_buffer_wrap, Type{A}, typeof(buffer), Int, Base.Dims{ndims(A)}
     )
     return (isconcretetype(S) && S <: A) ? S : nothing
-end
-
-@static if isdefined(Core, :Memory)
-    # `similar` of a `Memory` stays a `Memory` at rank 1, while the temporaries are `Array`s
-    function buffer_arraytype(
-            ::Type{A}, ::BufferAllocator{<:Memory}
-        ) where {A <: AbstractArray}
-        return A <: Array ? A : nothing
-    end
 end
 
 """
@@ -422,7 +414,7 @@ that the requested range actually fits within the buffer.
 offset rather than a pointer can use `start ÷ sizeof(eltype(A))` without losing bytes.
 """
 function unsafe_buffer_wrap(
-        ::Type{A}, buffer::BufferAllocator, start, structure
+        ::Type{A}, buffer::BufferAllocator{<:HostStorageType}, start, structure
     ) where {A <: Array}
     ptr = convert(Ptr{eltype(A)}, pointer(buffer, start))
     return Base.unsafe_wrap(Array, ptr, structure)
