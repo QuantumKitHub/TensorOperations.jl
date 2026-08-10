@@ -366,13 +366,9 @@ function _alignup(offset::Integer, alignment::Integer)
     return cld(offset, a) * a
 end
 
-# The alignment `tensoralloc` pads a temporary of element type `T` to: at least the natural
-# alignment of `T` and the alignment the buffer asks for, and always a multiple of `sizeof(T)`
-# on top of that. The latter keeps the byte offset expressible as a whole number of elements,
-# which is how the arrays of some backends carry their offset. For all standard element types
-# `sizeof(T)` already divides the alignment, so this costs no additional padding; it only
-# kicks in for oversized or oddly sized element types, which would otherwise have to fall
-# back on a regular allocation.
+# The alignment `tensoralloc` pads a temporary of element type `T` to. The multiple of
+# `sizeof(T)` keeps the offset expressible in elements, which is how some backends carry it,
+# and costs no additional padding for element types whose size divides the alignment.
 function _buffer_alignment(::Type{T}, buffer::BufferAllocator) where {T}
     alignment = max(Base.datatype_alignment(T), buffer_alignment(buffer))
     return iszero(sizeof(T)) ? alignment : lcm(sizeof(T), alignment)
@@ -390,12 +386,11 @@ Return the concrete array type that is used to serve a temporary allocation of t
 allocation path is used instead. This only depends on the types involved, such that the
 choice is resolved at compile time.
 
-The default answer is the type that `buffer`'s own storage would produce for the element type
-and rank of `A`, and `nothing` if that is not a concrete subtype of `A`. This lets a buffer
-back exactly the arrays of its own storage kind -- a `CuArray` buffer cannot back an `Array`
-and vice versa -- without every storage having to spell that out, and covers all GPU backends
-at once. It is resolved from the types alone, via inference on `similar`, so a storage whose
-`similar` is not inferrable loses buffer backing rather than becoming incorrect.
+The default answer is the type `buffer`'s own storage would produce for the element type and
+rank of `A`, as inferred from `similar`, and `nothing` if that is not a concrete subtype of
+`A`: a buffer backs exactly the arrays of its own storage kind, which covers all GPU backends
+at once. A storage whose `similar` is not inferrable loses buffer backing rather than
+becoming incorrect.
 
 See also [`TensorOperations.unsafe_buffer_wrap`](@ref).
 """
@@ -407,9 +402,7 @@ function buffer_arraytype(::Type{A}, buffer::BufferAllocator) where {A <: Abstra
 end
 
 @static if isdefined(Core, :Memory)
-    # `Memory` is the one storage for which `similar` does not answer this: it stays a `Memory`
-    # at rank 1, while the temporaries a `Memory`-backed buffer hands out are `Array`s at every
-    # rank
+    # `similar` of a `Memory` stays a `Memory` at rank 1, while the temporaries are `Array`s
     function buffer_arraytype(
             ::Type{A}, ::BufferAllocator{<:Memory}
         ) where {A <: AbstractArray}
@@ -425,9 +418,8 @@ shape `structure`. Here, `A` is the type returned by
 [`TensorOperations.buffer_arraytype`](@ref), and it is the caller's responsibility to ensure
 that the requested range actually fits within the buffer.
 
-`start` is guaranteed to be a multiple of `sizeof(eltype(A))`, so an implementation for arrays
-that carry an element offset rather than a pointer can use `start ÷ sizeof(eltype(A))` without
-losing bytes to the division.
+`start` is guaranteed to be a multiple of `sizeof(eltype(A))`, so arrays that carry an element
+offset rather than a pointer can use `start ÷ sizeof(eltype(A))` without losing bytes.
 """
 function unsafe_buffer_wrap(
         ::Type{A}, buffer::BufferAllocator, start, structure

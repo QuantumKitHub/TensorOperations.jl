@@ -80,8 +80,8 @@ using JLArrays
     end
 
     @testset "buffer_arraytype" begin
-        # a host buffer serves `Array`s at every rank, whatever its own storage is -- note that
-        # `similar` of the default `Memory` storage stays a `Memory` at rank 1
+        # a host buffer serves `Array`s at every rank, including the rank where `similar` of
+        # the default `Memory` storage stays a `Memory`
         for buffer in (BufferAllocator(), BufferAllocator{Vector{UInt8}}(; sizehint = 1024))
             for A in (
                     Vector{Float64}, Matrix{ComplexF64}, Array{Float32, 3},
@@ -261,10 +261,9 @@ end
             @test iszero(UInt(pointer(C2)) % 16)
         end
 
-        # `GPUArrays.derive` takes an element offset, so the padding of an element type whose
-        # size does not divide the alignment is a multiple of that size instead: such types are
-        # still served from the buffer, at an offset that survives the conversion to elements
-        # rather than silently truncating onto the previous temporary
+        # element types whose size does not divide the alignment are padded to a multiple of
+        # that size instead, so that the offset survives the conversion to elements that
+        # `GPUArrays.derive` takes rather than truncating onto the previous temporary
         @test TensorOperations.buffer_arraytype(JLArray{ComplexF64, 1}, buffer) ===
             JLArray{ComplexF64, 1}
         @test TensorOperations.buffer_arraytype(JLArray{NTuple{4, Float64}, 1}, buffer) ===
