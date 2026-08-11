@@ -28,6 +28,34 @@ function tensoradd!(
     end
     return C
 end
+
+# needed to avoid ambiguity error
+function tensoradd!(
+        C::AbstractArray,
+        A::Diagonal, pA::Index2Tuple, conjA::Bool,
+        α::Number, β::Number,
+        ::BaseView, allocator = DefaultAllocator()
+    )
+    argcheck_tensoradd(C, A, pA)
+    dimcheck_tensoradd(C, A, pA)
+
+    # can we assume that C is mutable?
+    # is there more functionality in base that we can use?
+    if conjA
+        if iszero(β)
+            C .= α .* conj.(A)
+        else
+            C .= β .* C .+ α .* conj.(A)
+        end
+    else
+        if iszero(β)
+            C .= α .* A
+        else
+            C .= β .* C .+ α .* A
+        end
+    end
+    return C
+end
 function tensoradd!(
         C::AbstractArray,
         A::AbstractArray, pA::Index2Tuple, conjA::Bool,
@@ -39,8 +67,13 @@ function tensoradd!(
 
     # can we assume that C is mutable?
     # is there more functionality in base that we can use?
-    Atemp = tensoralloc_add(eltype(A), A, pA, conjA, Val(true), allocator)
-    Ã = permutedims!(Atemp, A, linearize(pA))
+    Ã = if !isa(A, Diagonal)
+        Atemp = tensoralloc_add(eltype(A), A, pA, conjA, Val(true), allocator)
+        permutedims!(Atemp, A, linearize(pA))
+    else
+        Atemp = nothing
+        A
+    end
     if conjA
         if iszero(β)
             C .= α .* conj.(Ã)
@@ -54,7 +87,7 @@ function tensoradd!(
             C .= β .* C .+ α .* Ã
         end
     end
-    tensorfree!(Atemp, allocator)
+    !isa(A, Diagonal) && tensorfree!(Atemp, allocator)
     return C
 end
 
