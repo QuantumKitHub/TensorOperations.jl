@@ -58,6 +58,32 @@ bufferallocator(::Type{ROCArray}; kwargs...) = TensorOperations.AMDBufferAllocat
             tensoradd!(c, a, (p, ()), true, α, β, backend)
         end
     end
+    # test Diagonal special case
+    sz = (8, 8)
+    p = (2, 1)
+    diag_backends = [BaseCopy(), BaseView()]
+    for backend in diag_backends, T in (Float32, ComplexF32)
+        A = Diagonal(randn(T, sz[1]))
+        C = randn(T, TupleTools.getindices(sz, p))
+
+        @test compare(AT, C, A) do c, a
+            tensoradd!(c, a, (p, ()), false, One(), Zero(), backend)
+        end
+
+        α = rand(T)
+        @test compare(AT, C, A) do c, a
+            tensoradd!(c, a, (p, ()), false, α, Zero(), backend)
+        end
+
+        β = rand(T)
+        @test compare(AT, C, A) do c, a
+            tensoradd!(c, a, (p, ()), false, α, β, backend)
+        end
+
+        T <: Real || @test compare(AT, C, A) do c, a
+            tensoradd!(c, a, (p, ()), true, α, β, backend)
+        end
+    end
 end
 
 @testset "tensortrace! ($AT)" for AT in ATs
