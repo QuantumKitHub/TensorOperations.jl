@@ -17,6 +17,11 @@ const SV = StridedView
 
 const TBLISFloat = Union{Float32, Float64, ComplexF32, ComplexF64}
 
+# `tblis_jll` does ship a Windows build, but it aborts the process with
+# "posix_memalign: Invalid argument" from `tblis::MemoryPool::acquire` as soon as a
+# contraction reaches the GEMM kernels, so nothing is handed to the library there.
+const PLATFORM_SUPPORTED = !Sys.iswindows()
+
 #-------------------------------------------------------------------------------------------
 # Wrapping Julia arrays as TBLIS tensors
 #-------------------------------------------------------------------------------------------
@@ -38,7 +43,7 @@ isconj(A::StridedView{T}, conjA::Bool) where {T} = T <: Complex && (conjA ⊻ (A
 tblis_dims(A::StridedView) = (collect(len_type, size(A)), collect(stride_type, strides(A)))
 
 """
-    tblis_tensor(A::StridedView, α, len, stride, conj) -> Ref{TBLIS.tblis_tensor}
+    tblis_tensor_ref(A::StridedView, α, len, stride, conj) -> Ref{TBLIS.tblis_tensor}
 
 Descriptor for `α * A`, conjugated when `conj` is set, using `len` and `stride` as the
 buffers handed to TBLIS.
@@ -48,7 +53,7 @@ with the returned `Ref`, have to be kept alive by the caller for as long as TBLI
 them. Note that `conj` is the *total* conjugation applied to the data of `A`, as computed by
 [`isconj`](@ref), not the flag the caller was handed.
 """
-function tblis_tensor(
+function tblis_tensor_ref(
         A::StridedView{T, N}, α::T,
         len::Vector{len_type}, stride::Vector{stride_type}, conj::Bool
     ) where {T <: TBLISFloat, N}
@@ -66,6 +71,18 @@ labels(ein::Tuple{Vararg{Char}}) = String(UInt8[c for c in ein])
 #-------------------------------------------------------------------------------------------
 # Argument checking
 #-------------------------------------------------------------------------------------------
+@noinline function throw_unsupported_platform(f)
+    return throw(
+        ArgumentError(
+            LazyString(
+                "TBLISBackend is not supported on ", Base.BUILD_TRIPLET, ": the tblis_jll ",
+                "binaries for this platform abort the process from inside the library. ",
+                "Use another backend, such as StridedBLAS(), for ", f
+            )
+        )
+    )
+end
+
 @noinline function throw_eltype(f, tensors)
     return throw(
         ArgumentError(
@@ -88,6 +105,7 @@ end
 )
 
 function check_arguments(f, C::AbstractArray, As::AbstractArray...)
+    PLATFORM_SUPPORTED || throw_unsupported_platform(f)
     tensors = (C, As...)
     T = eltype(C)
     (T <: TBLISFloat && all(A -> eltype(A) === T, As)) || throw_eltype(f, tensors)
@@ -118,8 +136,8 @@ function TO.tensoradd!(
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
     GC.@preserve Av Cv lenA strideA lenC strideC begin
-        tA = tblis_tensor(Av, convert(T, α), lenA, strideA, isconj(Av, conjA))
-        tC = tblis_tensor(Cv, convert(T, β), lenC, strideC, false)
+        tA = tblis_tensor_ref(Av, convert(T, α), lenA, strideA, isconj(Av, conjA))
+        tC = tblis_tensor_ref(Cv, convert(T, β), lenC, strideC, false)
         TBLIS.tblis_tensor_add(C_NULL, C_NULL, tA, labels(einA), tC, labels(einC))
     end
     return C
@@ -143,8 +161,8 @@ function TO.tensortrace!(
     lenA, strideA = tblis_dims(Av)
     lenC, strideC = tblis_dims(Cv)
     GC.@preserve Av Cv lenA strideA lenC strideC begin
-        tA = tblis_tensor(Av, convert(T, α), lenA, strideA, isconj(Av, conjA))
-        tC = tblis_tensor(Cv, convert(T, β), lenC, strideC, false)
+        tA = tblis_tensor_ref(Av, convert(T, α), lenA, strideA, isconj(Av, conjA))
+        tC = tblis_tensor_ref(Cv, convert(T, β), lenC, strideC, false)
         TBLIS.tblis_tensor_add(C_NULL, C_NULL, tA, labels(einA), tC, labels(einC))
     end
     return C
@@ -199,9 +217,9 @@ function tblis_mult!(
     lenB, strideB = tblis_dims(B)
     lenC, strideC = tblis_dims(C)
     GC.@preserve A B C lenA strideA lenB strideB lenC strideC begin
-        tA = tblis_tensor(A, α, lenA, strideA, false)
-        tB = tblis_tensor(B, one(T), lenB, strideB, false)
-        tC = tblis_tensor(C, β, lenC, strideC, false)
+        tA = tblis_tensor_ref(A, α, lenA, strideA, false)
+        tB = tblis_tensor_ref(B, one(T), lenB, strideB, false)
+        tC = tblis_tensor_ref(C, β, lenC, strideC, false)
         TBLIS.tblis_tensor_mult(
             C_NULL, C_NULL, tA, labels(einA), tB, labels(einB), tC, labels(einC)
         )

@@ -88,6 +88,9 @@ TBLIS.set_num_threads(8)
 TBLIS requires all tensors in a single operation to share one element type out of `Float32`, `Float64`, `ComplexF32` and `ComplexF64`.
 Arguments that do not satisfy this, as well as non-strided arrays, are rejected with an `ArgumentError` instead of being passed on to another backend, so that a contraction which cannot actually reach TBLIS is not silently run somewhere else.
 
+The backend is not supported on Windows.
+`tblis_jll` does ship a Windows build, but it aborts the process from inside the library as soon as a contraction reaches its GEMM kernels, so calls there are rejected with an `ArgumentError` instead.
+
 Note that contracting in place trades throughput for memory rather than being a free win.
 With BLAS, TBLIS and `Strided.jl` all given the same number of threads, this backend is roughly on par with `StridedBLAS` for permuted real contractions and slower for other shapes, while allocating no permuted temporaries at all.
 

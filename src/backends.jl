@@ -88,6 +88,11 @@ has to be one of `Float32`, `Float64`, `ComplexF32` or `ComplexF64`.
 Arguments that do not meet these requirements, including non-strided arrays, are rejected
 with an `ArgumentError` rather than passed on to another backend.
 
+!!! warning
+    This backend is not supported on Windows: the `tblis_jll` binaries for that platform
+    abort the process from inside the library, so calls are rejected with an
+    `ArgumentError` there as well.
+
 !!! note
     Contracting in place trades throughput for memory.
     On a 16-core node this backend is roughly on par with

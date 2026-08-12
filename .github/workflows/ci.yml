@@ -17,6 +17,9 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
+    # a native library that aborts or deadlocks otherwise wedges the runner for the full
+    # 6h default; the slowest passing job takes about 45 minutes
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +52,7 @@ jobs:
     needs: test
     name: Julia nightly - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
