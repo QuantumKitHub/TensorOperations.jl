@@ -17,6 +17,7 @@ makedocs(;
             "man/implementation.md",
             "man/precompilation.md",
         ],
+        "Changelog" => "changelog.md",
         "Index" => "index/index.md",
     ],
     checkdocs = :public
