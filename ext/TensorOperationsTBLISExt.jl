@@ -13,9 +13,10 @@ using TensorOperations: tensoralloc_add, tensorfree!
 using TBLIS
 using TBLIS: len_type, stride_type, tblis_tensor
 
+using LinearAlgebra.BLAS: BlasFloat
 const SV = StridedView
 
-const TBLISFloat = Union{Float32, Float64, ComplexF32, ComplexF64}
+const TBLISFloat = BlasFloat
 
 # `tblis_jll` does ship a Windows build, but it aborts the process with
 # "posix_memalign: Invalid argument" from `tblis::MemoryPool::acquire` as soon as a
