@@ -81,6 +81,23 @@ if !is_buildkite
         include("butensor.jl")
     end
 
+    if Sys.iswindows()
+        # the Windows build of `tblis_jll` aborts the process from inside the library, so
+        # the extension refuses to call into it and there is nothing else to test
+        using TBLIS
+        @testset "TBLIS extension (unsupported platform)" begin
+            A = randn(Float64, (3, 4))
+            @test_throws ArgumentError tensoradd!(
+                zeros(Float64, (4, 3)), A, ((2, 1), ()), false, 1, 0,
+                TensorOperations.TBLISBackend()
+            )
+        end
+    else
+        @testset "TBLIS extension" verbose = true begin
+            include("tblis.jl")
+        end
+    end
+
     @testset "Polynomials" begin
         include("polynomials.jl")
     end
