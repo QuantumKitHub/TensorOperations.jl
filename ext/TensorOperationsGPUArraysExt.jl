@@ -20,4 +20,9 @@ function TO.unsafe_buffer_wrap(
     return GPUArrays.derive(T, buffer.buffer, TO._asdims(structure), Int(start) ÷ sizeof(T))
 end
 
+function TO.tensorfree!(C::AnyGPUArray, ::TO.DefaultAllocator)
+    GPUArrays.unsafe_free!(C)
+    return nothing
+end
+
 end
