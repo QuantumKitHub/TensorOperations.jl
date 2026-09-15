@@ -28,4 +28,4 @@ function _mixed_precision_cases(sizes)
     return cases
 end
 
-register_category!(:mixed_precision, _mixed_precision_cases; sizes = (32, 128, 512))
+register_category!(:mixed_precision, _mixed_precision_cases; sizes = (33, 129, 500))

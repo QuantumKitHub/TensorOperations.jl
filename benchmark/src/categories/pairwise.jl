@@ -2,6 +2,10 @@
 # not a regex-parsed `.dat` file) from the shapes explored in the stale `ld/benchmark`
 # prototype. `sizes` is a list of leg dimensions to sweep; every dimension is used at every
 # `(nopenA, ncontract, nopenB)` shape below, giving a scaling curve per shape.
+#
+# The default sweep deliberately mixes powers of two with off-by-one and arbitrary sizes
+# (15, 63, 96, 200) -- an all-power-of-two sweep hides alignment/padding/vectorization-boundary
+# effects that only show up at sizes a SIMD width or cache line doesn't divide evenly.
 
 const PAIRWISE_SHAPES = (
     (1, 1, 1),   # matrix-vector-like
@@ -31,4 +35,4 @@ function _pairwise_cases(sizes)
     return cases
 end
 
-register_category!(:pairwise, _pairwise_cases; sizes = (8, 32, 64, 128, 256))
+register_category!(:pairwise, _pairwise_cases; sizes = (8, 15, 32, 63, 96, 128, 200, 256))

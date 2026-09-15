@@ -32,4 +32,4 @@ function _trace_cases(sizes)
     return cases
 end
 
-register_category!(:trace, _trace_cases; sizes = (8, 32, 64, 128, 256))
+register_category!(:trace, _trace_cases; sizes = (8, 15, 32, 63, 96, 128, 200, 256))

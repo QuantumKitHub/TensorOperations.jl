@@ -3,7 +3,8 @@
 # dominant cost in every DMRG-style sweep (cost ~ O(D^3*d*w + D^2*d^2*w^2)). `sizes` is a list
 # of bond dimensions `D` to sweep; physical dimension `d` and MPO bond `w` are held fixed
 # (representative of a local spin/Hubbard-like model) since the literature identifies `D` as
-# the dominant scaling knob.
+# the dominant scaling knob. The default sweep mixes power-of-two anchors with bond dimensions
+# actually seen in production DMRG (100, 300), rather than an all-power-of-two ladder.
 #
 # Also includes the 2-site "theta" tensor variant (`L - W - W - R` applied to a 2-site ket),
 # which is what feeds the SVD/truncation step in 2-site DMRG.
@@ -51,4 +52,4 @@ function _mps_cases(sizes)
     )
 end
 
-register_category!(:mps, _mps_cases; sizes = (32, 64, 128, 256, 512))
+register_category!(:mps, _mps_cases; sizes = (32, 48, 64, 100, 128, 256, 300, 512))

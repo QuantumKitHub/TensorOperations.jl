@@ -4,7 +4,8 @@
 #
 # `sizes` is a list of leg dimensions; for each dimension we benchmark permutations of a
 # rank-4 tensor across a spread of "how scrambled" the permutation is (identity-adjacent vs.
-# fully reversed).
+# fully reversed). The default sweep mixes powers of two with non-power-of-two sizes (15, 63,
+# 96, 200) to catch alignment/padding effects that a clean power-of-two ladder would hide.
 
 const PERMUTE_PATTERNS = (
     [1, 2, 3, 4],   # identity (still exercises the copy machinery, no real permutation)
@@ -29,4 +30,4 @@ function _permute_cases(sizes)
     return cases
 end
 
-register_category!(:permute, _permute_cases; sizes = (8, 32, 64, 128, 256))
+register_category!(:permute, _permute_cases; sizes = (8, 15, 32, 63, 96, 128, 200, 256))
