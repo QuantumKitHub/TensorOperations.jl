@@ -1,13 +1,7 @@
-# Analytical flop/byte counts computed directly from a spec (no tensor objects needed), so
-# that timings can be reported as GFLOP/s or GB/s scaling curves instead of raw wall-clock time.
+# Analytical flop/byte counts computed from a spec alone, so timings can be reported as
+# GFLOP/s / GB/s scaling curves.
 
-# A spec's `TA`/`TB`/`TC` (or `Ts`) are `nothing` unless the mixed-precision category set them
-# explicitly -- meaning "whatever the provider's default `scalartype` turns out to be", which
-# isn't known until a provider is chosen. For sizing purposes (both for reporting GB/s *before*
-# a provider is picked, and for the `within_memory_budget` safety check in registry.jl, which
-# runs at case-generation time) we assume the common case of `Float64`/`ComplexF64`-sized
-# (8-byte) elements; this can only ever *underestimate* real memory use for a provider using a
-# larger element type, never overestimate it into skipping a case that would actually fit.
+# `nothing` eltype means "provider not chosen yet"; assume 8 bytes (never overestimates memory).
 _elsize(::Nothing) = sizeof(Float64)
 _elsize(T::Type) = sizeof(T)
 
@@ -44,8 +38,7 @@ function bytes(spec::TraceSpec)
     return nA * _elsize(spec.TA) + nC * _elsize(spec.TC)
 end
 
-# Pairwise contraction: 2 * (open-A) * (open-B) * (contracted), the standard GEMM-equivalent
-# flop count, using multiply-add pairs.
+# standard GEMM-equivalent flop count: 2 * open-A * open-B * contracted
 function flops(spec::ContractSpec)
     contracted = intersect(spec.IA, spec.IB)
     openA = setdiff(spec.IA, contracted)
@@ -62,10 +55,7 @@ function bytes(spec::ContractSpec)
     return nA * _elsize(spec.TA) + nB * _elsize(spec.TB) + nC * _elsize(spec.TC)
 end
 
-# Network: walk the *actual* pairwise contraction tree that `ncon` would build for this
-# network (`TensorOperations.ncontree`/`indexordertree`, the same functions `ncon` itself
-# calls), rather than an arbitrary/greedy pairing -- so the reported cost matches what
-# `execute(spec::NetworkSpec, ...)` actually runs, not a guess at it.
+# walks the same tree ncon itself builds (ncontree/indexordertree), not an arbitrary pairing.
 function flops(spec::NetworkSpec)
     tree = spec.order === nothing ? TensorOperations.ncontree(spec.indexlists) :
         TensorOperations.indexordertree(spec.indexlists, spec.order)
@@ -85,10 +75,7 @@ function bytes(spec::NetworkSpec)
     )
 end
 
-# Recursively walks a `ncontree`/`indexordertree` result (leaves are `Int` indices into
-# `spec.indexlists`, nodes are `Any[left, right]`), returning `(survivinglabels, totalcost)`,
-# calling `f(labelsA, labelsB, contractedlabels)` at every pairwise step -- mirroring exactly
-# how `ncon`'s own `contracttree` combines subtrees (`IC = symdiff(IA, IB)`).
+# tree: leaves are Int indices into spec.indexlists, nodes are Any[left, right] (ncontree's format).
 function _tree_cost(f, spec::NetworkSpec, tree)
     tree isa Int && return spec.indexlists[tree], 0
     labelsA, costA = _tree_cost(f, spec, tree[1])

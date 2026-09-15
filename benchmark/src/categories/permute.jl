@@ -1,11 +1,5 @@
-# Permutation-only benchmarks (transpose cost), a first-class category in its own right:
-# TBLIS/TCL-style backends exist precisely because transpose-free vs. transpose-then-GEMM
-# strategies differ, so isolating pure `tensorcopy!` cost from contraction cost matters.
-#
-# `sizes` is a list of leg dimensions; for each dimension we benchmark permutations of a
-# rank-4 tensor across a spread of "how scrambled" the permutation is (identity-adjacent vs.
-# fully reversed). The default sweep mixes powers of two with non-power-of-two sizes (15, 63,
-# 96, 200) to catch alignment/padding effects that a clean power-of-two ladder would hide.
+# Permutation-only cost (`tensorcopy!`), isolated from contraction cost. Rank-4 tensor, sweeping
+# leg dimension x how scrambled the permutation is.
 
 const PERMUTE_PATTERNS = (
     [1, 2, 3, 4],   # identity (still exercises the copy machinery, no real permutation)

@@ -1,8 +1,5 @@
-# PkgBenchmark entrypoint: `PkgBenchmark.benchmarkpkg` looks for this file and expects a
-# top-level `const SUITE`. Thread counts are read from environment variables and applied via
-# `set_threads!` *before* `SUITE` is built -- once, at the process level -- rather than swept as
-# a suite axis, so that no timed sample ever pays for a `BLAS`/`Strided` thread-count switch
-# (see threading.jl). `scripts/run_benchmarks.jl` sets these env vars per outer sweep point.
+# PkgBenchmark entrypoint: expects a top-level `const SUITE`. Thread counts come from env vars
+# (set by scripts/run_benchmarks.jl) and are applied once, before SUITE is built.
 using TensorOperationsBenchmarks
 using TensorOperations: StridedNative, StridedBLAS
 

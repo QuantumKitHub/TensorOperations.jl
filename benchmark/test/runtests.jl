@@ -32,9 +32,6 @@ using Strided: Strided
     end
 
     @testset "network cost matches ncon's own contraction tree" begin
-        # for a linear chain A-B-C-D (as in the MPS motif), ncon's greedy tree contracts
-        # increasing labels first (1, then 2, then 3) -- confirm flops(spec) reflects that
-        # order rather than an arbitrary pairing.
         cases = REGISTRY[:mps]((16,))
         case = only(filter(c -> occursin("1site", c.id), cases))
         @test flops(case.spec) > 0

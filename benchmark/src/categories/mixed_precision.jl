@@ -1,9 +1,4 @@
-# Mixed input/output element-type contractions: TensorOperations.jl's `promote_add`/
-# `promote_contract` (Base.promote_op-based, see src/implementation/allocator.jl) already
-# support tensors of differing element types -- e.g. a Float64 tensor traced against a
-# ComplexF64 one, or a (Float64, ComplexF64) -> ComplexF32 contraction (both exercised in
-# test/methods.jl). This is a real, tested path and gets its own category rather than being
-# folded into same-eltype pairwise contractions.
+# Contractions with differing input/output element types (promote_add/promote_contract).
 
 const MIXED_PRECISION_COMBOS = (
     (Float32, Float32, Float64),     # low-precision inputs, high-precision accumulation

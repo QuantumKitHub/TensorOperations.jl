@@ -1,13 +1,5 @@
-# The MPS/MPO DMRG effective-Hamiltonian motif: applying `H_eff = L - W - R` to an MPS
-# tensor, i.e. `environment(D,D,w) x MPS(D,d,D) x MPO(w,d,d,w) x environment(D,D,w)`, the
-# dominant cost in every DMRG-style sweep (cost ~ O(D^3*d*w + D^2*d^2*w^2)). `sizes` is a list
-# of bond dimensions `D` to sweep; physical dimension `d` and MPO bond `w` are held fixed
-# (representative of a local spin/Hubbard-like model) since the literature identifies `D` as
-# the dominant scaling knob. The default sweep mixes power-of-two anchors with bond dimensions
-# actually seen in production DMRG (100, 300), rather than an all-power-of-two ladder.
-#
-# Also includes the 2-site "theta" tensor variant (`L - W - W - R` applied to a 2-site ket),
-# which is what feeds the SVD/truncation step in 2-site DMRG.
+# MPS/MPO DMRG effective-Hamiltonian motif (L-MPS-MPO-R, cost ~ O(D^3*d*w)) plus the 2-site
+# "theta" variant (L-MPS-MPO-MPO-MPS-R), swept over bond dimension `D`.
 
 const MPS_PHYS_DIM = 2   # d: physical dimension (spin-1/2)
 const MPS_MPO_BOND = 6   # w: MPO bond dimension (local Hamiltonian)

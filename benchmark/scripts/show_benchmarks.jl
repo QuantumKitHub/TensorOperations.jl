@@ -1,10 +1,6 @@
 #!/usr/bin/env julia
-# Plots time/GFLOPs-vs-size scaling curves from a PkgBenchmark result JSON (as written by
-# `run_benchmarks.jl`). Not part of the main package's dependencies (CairoMakie is heavy) --
-# install it into the active environment yourself first:
-#
-#   julia --project=. -e 'using Pkg; Pkg.add("CairoMakie")'
-#   julia --project=. scripts/show_benchmarks.jl results_t4_blas1_strided1.json
+# Plots time/GFLOPs-vs-size curves from a run_benchmarks.jl result JSON. Requires CairoMakie
+# (`Pkg.add("CairoMakie")` into this environment first -- not a package dependency, it's heavy).
 using Pkg
 Pkg.activate(@__DIR__ * "/..")
 

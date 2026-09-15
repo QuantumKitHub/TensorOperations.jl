@@ -1,6 +1,4 @@
-# A category is registered as a single generator function `sizes -> Vector{BenchmarkCase}`.
-# Adding a new category to the suite is exactly: write one file defining a generator, `include`
-# it, and call `register_category!` -- nothing else in the framework changes.
+# A category is a generator function `sizes -> Vector{BenchmarkCase}`, registered by name.
 
 """
     BenchmarkCase(category, id, params, spec)

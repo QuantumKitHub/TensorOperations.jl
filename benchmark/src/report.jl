@@ -1,7 +1,5 @@
-# Turns a BenchmarkTools/PkgBenchmark result `BenchmarkGroup` (as produced by running a
-# `build_suite` suite) into a flat table of rows, joining the raw timings back against the
-# originating specs (regenerated from `REGISTRY`) so GFLOP/s and bandwidth can be reported
-# alongside wall-clock time.
+# Flattens a benchmark result into rows, joining timings back against specs (regenerated from
+# REGISTRY) for GFLOP/s and bandwidth.
 
 """
     ResultRow

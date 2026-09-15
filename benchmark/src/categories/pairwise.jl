@@ -1,11 +1,5 @@
-# Generic pairwise contractions of varying rank/dimension, ported (as literal Julia data,
-# not a regex-parsed `.dat` file) from the shapes explored in the stale `ld/benchmark`
-# prototype. `sizes` is a list of leg dimensions to sweep; every dimension is used at every
-# `(nopenA, ncontract, nopenB)` shape below, giving a scaling curve per shape.
-#
-# The default sweep deliberately mixes powers of two with off-by-one and arbitrary sizes
-# (15, 63, 96, 200) -- an all-power-of-two sweep hides alignment/padding/vectorization-boundary
-# effects that only show up at sizes a SIMD width or cache line doesn't divide evenly.
+# Generic pairwise contractions, swept over leg dimension `sizes` x shape. Sizes mix
+# power-of-two with off-by-one/arbitrary values to catch alignment effects.
 
 const PAIRWISE_SHAPES = (
     (1, 1, 1),   # matrix-vector-like

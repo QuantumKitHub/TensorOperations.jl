@@ -1,8 +1,4 @@
-# Suite assembly: nests a `BenchmarkGroup` as [category][provider label][case id]. Threading
-# is deliberately NOT an axis here -- see threading.jl -- since applying it per-case would
-# count the thread-count switch as part of the timed operation. `benchmarks.jl` (the
-# PkgBenchmark entrypoint) is expected to be a thin wrapper: call `set_threads!` once, construct
-# the `AbstractProvider`s to compare, call `build_suite`, assign the result to `const SUITE`.
+# Nests a BenchmarkGroup as [category][provider label][case id]. No threading axis -- see threading.jl.
 
 """
     build_suite(providers; categories=collect(keys(REGISTRY)), sizes=nothing)

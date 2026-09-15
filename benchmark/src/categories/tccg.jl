@@ -1,15 +1,6 @@
-# Real contraction patterns from the TCCG benchmark (Springer et al., HPAC group,
-# github.com/HPAC/tccg -- the "Springer benchmark"), harvested from 4 quantum-chemistry
-# papers: CCSD, CCSD(T), AO2MO integral transformation, and INTENSLI. Pulled from
-# `benchmark/benchmark.py`'s own "C-A-B" index-string notation (output-A-B), e.g. "ij-ik-kj"
-# means `C[i,j] = A[i,k] * B[k,j]`.
-#
-# These are quantum-chemistry contractions, not tensor-network ones -- included as a source of
-# real (rather than synthetic) high-rank, irregular open/contracted/batch index splits, to
-# diversify the otherwise hand-picked shapes in `:pairwise`. TCCG itself sizes every index
-# uniformly to hit a target total tensor memory, rather than giving occupied/virtual orbitals
-# different sizes; `sizes` mirrors that -- a single leg dimension applied to every distinct
-# index letter in a given equation.
+# Real quantum-chemistry contractions from the TCCG benchmark (github.com/HPAC/tccg): CCSD,
+# CCSD(T), AO2MO, INTENSLI, as "C-A-B" index strings (e.g. "ij-ik-kj" = C[i,j]=A[i,k]*B[k,j]).
+# `sizes` applies one leg dimension uniformly to every index letter, as TCCG itself does.
 
 const TCCG_CONTRACTIONS = (
     # CCSD

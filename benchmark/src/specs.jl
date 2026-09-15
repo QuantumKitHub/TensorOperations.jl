@@ -1,11 +1,6 @@
-# Pure-data contraction/network specifications.
-#
-# Specs carry index labels and leg extents only -- never actual tensor objects -- so that a
-# single spec can be shared across providers (different tensor types/backends) and so that
-# `cost.jl` can compute flop/byte counts analytically from the spec alone.
-#
-# `TA`/`TB`/`TC` (and `Ts` for `NetworkSpec`) default to `nothing`, meaning "ask the provider
-# for its default `scalartype`". Only the mixed-precision category sets them explicitly.
+# Pure-data contraction/network specs: labels and leg extents only, no tensor objects, so a
+# spec is shareable across providers. `TA`/`TB`/`TC`/`Ts` default to `nothing` ("provider's
+# default scalartype"); only mixed_precision.jl sets them explicitly.
 
 abstract type AbstractCaseSpec end
 

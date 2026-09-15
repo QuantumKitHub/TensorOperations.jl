@@ -1,17 +1,7 @@
-# Turns a (spec, provider) pair into an executable BenchmarkTools benchmark. Everything that
-# isn't the operation itself -- input tensors, the *output* tensor, and the low-level
-# `Index2Tuple` index-permutation computation -- is built fresh in the `setup=` block (once per
-# sample, not per eval), so it doesn't count against the timed operation. In particular, `C` is
-# preallocated (via `tensoralloc_add`/`tensoralloc_contract`, so it goes through the provider's
-# configured allocator) and execution uses the mutating `tensorcopy!`/`tensortrace!`/
-# `tensorcontract!`, so the timed region is exactly the compute kernel, not an output
-# allocation.
-#
-# `NetworkSpec` is the one exception: `ncon` has no public in-place variant (it always
-# allocates its final and intermediate results internally), so its timed region does include
-# allocation. Reimplementing `ncon`'s tree contraction manually with preallocated buffers would
-# let us avoid that, but is out of scope for v1 -- `ncon`-based network cases should be read as
-# "cost of ncon", allocation included, not "cost of the raw contraction kernel".
+# Input/output tensors are built in setup=, not timed. Output `C` is preallocated via
+# tensoralloc_add/tensoralloc_contract and execution uses the mutating tensor*!, so the timed
+# region is the compute kernel, not an allocation -- except NetworkSpec/ncon, which has no
+# in-place variant, so its timing includes allocation.
 
 _scalartype_or(::Nothing, provider) = TensorOperations.scalartype(provider)
 _scalartype_or(T::Type, provider) = T

@@ -1,15 +1,7 @@
 #!/usr/bin/env julia
-# CLI wrapper around PkgBenchmark.benchmarkpkg, mirroring the old `ld/benchmark` runner's
-# flags. Run from the `benchmark/` directory, e.g.:
-#
+# CLI wrapper around PkgBenchmark.benchmarkpkg. `--threads` relaunches Julia per value (fixed
+# at startup); `--blas-threads`/`--strided-threads` set env vars benchmarks.jl reads.
 #   julia --project=. scripts/run_benchmarks.jl --threads 1 2 4 --blas-threads 1 4 --out results
-#
-# Threads: `--threads` sweeps the *outer* Julia process thread count (`-t`), which is fixed at
-# startup and therefore requires relaunching Julia once per value (via PkgBenchmark's
-# `juliacmd`). `--blas-threads`/`--strided-threads` sweep the *inner* BLAS/Strided thread
-# counts, applied once per run via `TOB_BLAS_THREADS`/`TOB_STRIDED_THREADS` env vars that
-# `benchmarks.jl` reads and applies with `set_threads!` before `SUITE` is built -- never as a
-# per-case axis (see threading.jl for why).
 using Pkg
 Pkg.activate(@__DIR__ * "/..")
 
