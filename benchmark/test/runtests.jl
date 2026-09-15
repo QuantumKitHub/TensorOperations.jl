@@ -76,4 +76,15 @@ using Strided: Strided
         @test any(c -> occursin("1site", c.id), cases)
         @test any(c -> occursin("2site", c.id), cases)
     end
+
+    @testset "tccg category covers all 4 source groups and executes" begin
+        cases = REGISTRY[:tccg]((4,))
+        @test length(TensorOperationsBenchmarks.TCCG_CONTRACTIONS) == 24
+        for prefix in ("ccsd_", "ccsd_t_", "ao2mo_", "intensli_")
+            @test any(c -> startswith(c.params.equation, prefix), cases)
+        end
+        suite = build_suite([provider]; categories = [:tccg], sizes = (4,))
+        results = run(suite; samples = 1, evals = 1, seconds = 5)
+        @test !isempty(results["tccg"][label(provider)])
+    end
 end

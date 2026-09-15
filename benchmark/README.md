@@ -34,6 +34,9 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
   Float64`, mixed real/complex).
 - `:mps` -- MPS/MPO DMRG effective-Hamiltonian motif (1-site and 2-site "theta"), swept over
   bond dimension `D`.
+- `:tccg` -- 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from the
+  [TCCG benchmark](https://github.com/HPAC/tccg); a source of real high-rank, irregular
+  index-split shapes rather than hand-picked ones.
 
 Not yet implemented, but addable without a redesign: CTMRG/PEPS, TRG/MERA,
 contraction-order/path-finding timing.

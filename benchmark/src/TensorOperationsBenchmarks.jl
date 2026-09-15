@@ -21,6 +21,7 @@ include("categories/permute.jl")
 include("categories/trace.jl")
 include("categories/mixed_precision.jl")
 include("categories/mps.jl")
+include("categories/tccg.jl")
 
 export AbstractCaseSpec, AddSpec, TraceSpec, ContractSpec, NetworkSpec
 export flops, bytes
