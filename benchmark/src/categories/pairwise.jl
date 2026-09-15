@@ -1,0 +1,34 @@
+# Generic pairwise contractions of varying rank/dimension, ported (as literal Julia data,
+# not a regex-parsed `.dat` file) from the shapes explored in the stale `ld/benchmark`
+# prototype. `sizes` is a list of leg dimensions to sweep; every dimension is used at every
+# `(nopenA, ncontract, nopenB)` shape below, giving a scaling curve per shape.
+
+const PAIRWISE_SHAPES = (
+    (1, 1, 1),   # matrix-vector-like
+    (2, 1, 2),   # single shared bond, several open legs each side
+    (2, 2, 2),   # GEMM-like, rank 4 total
+    (1, 3, 1),   # trace-heavy: many contracted, few open
+    (1, 0, 1),   # pure outer product, no contraction
+)
+
+function _pairwise_cases(sizes)
+    cases = BenchmarkCase[]
+    for dim in sizes
+        for (nopenA, ncontract, nopenB) in PAIRWISE_SHAPES
+            openA = [Symbol("a", i) for i in 1:nopenA]
+            contract = [Symbol("c", i) for i in 1:ncontract]
+            openB = [Symbol("b", i) for i in 1:nopenB]
+            IA = vcat(openA, contract)
+            IB = vcat(contract, openB)
+            IC = vcat(openA, openB)
+            dims = Dict{Symbol, Int}(l => dim for l in vcat(IA, IB))
+            spec = ContractSpec(IA, IB, IC, dims)
+            within_memory_budget(spec) || continue
+            id = "dim$(dim)_$(nopenA)_$(ncontract)_$(nopenB)"
+            push!(cases, BenchmarkCase(:pairwise, id, (; dim, nopenA, ncontract, nopenB), spec))
+        end
+    end
+    return cases
+end
+
+register_category!(:pairwise, _pairwise_cases; sizes = (8, 32, 64, 128, 256))

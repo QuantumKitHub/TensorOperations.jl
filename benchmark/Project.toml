@@ -1,0 +1,30 @@
+name = "TensorOperationsBenchmarks"
+uuid = "d983fc97-4e87-46ba-abd9-b4864e69d4dd"
+authors = ["Lukas Devos <lukas.devos@ugent.be>"]
+version = "0.1.0"
+
+[deps]
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PkgBenchmark = "32113eaa-f34f-5b0d-bd6c-c81e245fc73d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Strided = "5e0ebb24-38b0-5f93-81fe-25c709ecae67"
+TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
+
+[compat]
+ArgParse = "1"
+BenchmarkTools = "1"
+LinearAlgebra = "1.10"
+PkgBenchmark = "0.2"
+Random = "1.10"
+Strided = "2.6"
+TensorOperations = "5.8"
+Test = "1"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
