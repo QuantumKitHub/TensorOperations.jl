@@ -86,7 +86,7 @@
             (:(a[5]), Any[:a, :b, :c], [], :(x * x), false)
         @test isgeneraltensor(:(a[5][a, b, c] * x / y))
         @test decomposegeneraltensor(:(a[5][a, b, c] / y * x)) ==
-            (:(a[5]), Any[:a, :b, :c], [], :((1 / y) * x), false)
+            (:(a[5]), Any[:a, :b, :c], [], :(($(One()) / y) * x), false)
         @test isgeneraltensor(:(x / y * a[5][a, b, c] * y / x))
         @test decomposegeneraltensor(:(x / y * a[5][a, b, c] / y * x)) ==
             (:(a[5]), Any[:a, :b, :c], [], :(((x / y) / y) * x), false)
