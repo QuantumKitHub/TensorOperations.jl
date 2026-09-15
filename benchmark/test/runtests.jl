@@ -84,4 +84,12 @@ using Strided: Strided
         results = run(suite; samples = 1, evals = 1, seconds = 5)
         @test !isempty(results["tccg"][label(provider)])
     end
+
+    @testset "ctmrg and trg categories execute" begin
+        for category in (:ctmrg, :trg)
+            suite = build_suite([provider]; categories = [category], sizes = (8,))
+            results = run(suite; samples = 1, evals = 1, seconds = 5)
+            @test !isempty(results[String(category)][label(provider)])
+        end
+    end
 end

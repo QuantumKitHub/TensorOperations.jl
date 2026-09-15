@@ -37,9 +37,10 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
 - `:tccg` -- 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from the
   [TCCG benchmark](https://github.com/HPAC/tccg); a source of real high-rank, irregular
   index-split shapes rather than hand-picked ones.
+- `:ctmrg` -- CTMRG corner-growth step (2D PEPS boundary-MPS), swept over environment bond `chi`.
+- `:trg` -- TRG plaquette contraction (4-ring of rank-3 tensors), swept over bond `chi`.
 
-Not yet implemented, but addable without a redesign: CTMRG/PEPS, TRG/MERA,
-contraction-order/path-finding timing.
+Not yet implemented, but addable without a redesign: MERA, contraction-order/path-finding timing.
 
 ## Adding a category
 
