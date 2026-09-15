@@ -2,7 +2,7 @@
 # Plots time/GFLOPs-vs-size curves from a run_benchmarks.jl result JSON. Requires CairoMakie
 # (`Pkg.add("CairoMakie")` into this environment first -- not a package dependency, it's heavy).
 using Pkg
-Pkg.activate(@__DIR__ * "/..")
+Pkg.activate(joinpath(@__DIR__, ".."))
 
 using ArgParse
 using PkgBenchmark

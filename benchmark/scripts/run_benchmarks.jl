@@ -3,7 +3,7 @@
 # at startup); `--blas-threads`/`--strided-threads` set env vars benchmarks.jl reads.
 #   julia --project=. scripts/run_benchmarks.jl --threads 1 2 4 --blas-threads 1 4 --out results
 using Pkg
-Pkg.activate(@__DIR__ * "/..")
+Pkg.activate(joinpath(@__DIR__, ".."))
 
 using ArgParse
 using PkgBenchmark
