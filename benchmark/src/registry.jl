@@ -14,6 +14,17 @@ struct BenchmarkCase
     spec::AbstractCaseSpec
 end
 
+"""
+    casetags(case::BenchmarkCase) -> Vector
+
+Tags for `BenchmarkTools.@tagged`-based filtering (see suite.jl): the category name, plus every
+`Symbol`-valued entry of `params` (e.g. `source`, `kind`, `variant`, `layout`). A category
+generator opts a `params` field into tag-filtering just by giving it a `Symbol` value.
+"""
+function casetags(case::BenchmarkCase)
+    return Any[String(case.category); [string(v) for v in values(case.params) if v isa Symbol]]
+end
+
 const REGISTRY = Dict{Symbol, Function}()
 const DEFAULT_SIZES = Dict{Symbol, Any}()
 

@@ -23,7 +23,7 @@ end
 """
     resultstable(results::BenchmarkGroup; categories=collect(keys(REGISTRY)), sizes=nothing)
 
-Flatten a benchmark-run result (with the same `[category][provider][id]` nesting
+Flatten a benchmark-run result (with the same `[category][provider][id]["benchmark"]` nesting
 `build_suite` produces) into a `Vector{ResultRow}`. `categories`/`sizes` must match what was
 passed to the `build_suite` call that produced `results`, since specs (and therefore
 flop/byte counts) are regenerated from `REGISTRY` rather than stored in the result itself.
@@ -40,7 +40,7 @@ function resultstable(
         for providerlabel in keys(catgroup)
             provgroup = catgroup[providerlabel]
             for id in keys(provgroup)
-                trial = provgroup[id]
+                trial = provgroup[id]["benchmark"]
                 case = casesbyid[id]
                 mintime = minimum(trial.times)
                 memory = trial.memory

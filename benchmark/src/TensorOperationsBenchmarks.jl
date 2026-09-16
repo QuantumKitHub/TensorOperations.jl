@@ -30,8 +30,9 @@ export flops, bytes
 export AbstractProvider, ArrayProvider, scalartype, randtensor, backend, allocator, label,
     supports, rng
 export ThreadConfig, with_threads, set_threads!
-export BenchmarkCase, register_category!, REGISTRY, default_sizes
+export BenchmarkCase, register_category!, REGISTRY, default_sizes, casetags
 export build_suite
 export resultstable
+export @tagged
 
 end # module

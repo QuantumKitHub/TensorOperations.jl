@@ -74,7 +74,7 @@ using Strided: Strided
         @test any(c -> occursin("2site", c.id), cases)
     end
 
-    @testset "tccg cases are merged into :pairwise, filterable by params.source" begin
+    @testset "tccg cases are merged into :pairwise, filterable via @tagged" begin
         cases = REGISTRY[:pairwise]((4,))
         tccg_cases = filter(c -> c.params.source == :tccg, cases)
         @test length(TensorOperationsBenchmarks.TCCG_CONTRACTIONS) == 24
@@ -82,13 +82,29 @@ using Strided: Strided
         for prefix in ("ccsd_", "ccsd_t_", "ao2mo_", "intensli_")
             @test any(c -> startswith(c.params.equation, prefix), tccg_cases)
         end
-        suite = build_suite(
-            [provider]; categories = [:pairwise], sizes = (4,),
-            casefilter = c -> c.params.source == :tccg
-        )
-        results = run(suite; samples = 1, evals = 1, seconds = 5)
+        suite = build_suite([provider]; categories = [:pairwise], sizes = (4,))
+        results = run(suite[@tagged "tccg"]; samples = 1, evals = 1, seconds = 5)
         @test !isempty(results["pairwise"][label(provider)])
         @test length(results["pairwise"][label(provider)]) == length(tccg_cases)
+    end
+
+    @testset "casetags derives from category + Symbol-valued params" begin
+        case = first(REGISTRY[:trace]((8,)))
+        tags = casetags(case)
+        @test "trace" in tags
+        @test string(case.params.kind) in tags
+    end
+
+    @testset "pairwise permuted-stride layouts are structurally distinct and filterable" begin
+        cases = REGISTRY[:pairwise]((8,))
+        layouts = unique(c.params.layout for c in cases if c.params.source == :synthetic)
+        @test :gemm_ready in layouts
+        @test :both_permuted in layouts
+
+        suite = build_suite([provider]; categories = [:pairwise], sizes = (8,))
+        results = run(suite[@tagged "both_permuted"]; samples = 1, evals = 1, seconds = 5)
+        n_expected = count(c -> c.params.source == :synthetic && c.params.layout == :both_permuted, cases)
+        @test length(results["pairwise"][label(provider)]) == n_expected
     end
 
     @testset "ctmrg and trg categories execute" begin

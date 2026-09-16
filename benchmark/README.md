@@ -18,7 +18,8 @@ julia --project=. -e '
 '
 ```
 
-Or for commit-to-commit regression comparison via PkgBenchmark:
+Or for commit-to-commit regression comparison via PkgBenchmark. Both scripts are `@main` apps
+(Julia 1.11+), so `--help` works and `ARGS` are parsed the normal way:
 
 ```
 julia --project=. scripts/run_benchmarks.jl --threads 1 4 --blas-threads 1 4
@@ -27,10 +28,13 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
 
 ## Categories (v1)
 
-- `:pairwise` -- generic pairwise contractions: a synthetic parametric shape family
-  (`params.source == :synthetic`) plus 24 real quantum-chemistry contractions (CCSD, CCSD(T),
-  AO2MO, INTENSLI) from the [TCCG benchmark](https://github.com/HPAC/tccg)
-  (`params.source == :tccg`). Use `build_suite`'s `casefilter` to select either subset.
+- `:pairwise` -- generic pairwise contractions: a synthetic parametric shape family (tagged
+  `synthetic`) plus 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from
+  the [TCCG benchmark](https://github.com/HPAC/tccg) (tagged `tccg`). Each synthetic shape also
+  comes in up to 4 label-order layouts (tagged `gemm_ready`/`a_permuted`/`b_permuted`/
+  `both_permuted`): `gemm_ready` is directly reshapeable to a BLAS call, the others interleave
+  open/contracted labels so no reshape or transpose flag suffices -- a real permutation is
+  required, which is what actually separates `StridedNative` from `StridedBLAS`.
 - `:permute` -- permutation-only (`tensorcopy!`) cost.
 - `:trace` -- partial and full traces.
 - `:mixed_precision` -- differing input/output element types (e.g. `Float32 x Float32 ->
@@ -47,6 +51,27 @@ Not yet implemented, but addable without a redesign: MERA, contraction-order/pat
 New file under `src/categories/`, define `mysizes -> Vector{BenchmarkCase}` building
 `ContractSpec`/`TraceSpec`/`AddSpec`/`NetworkSpec` values, `include` it, call
 `register_category!(:mycategory, mygenerator)`. Nothing else changes.
+
+## `BenchmarkCase` vs. plain `BenchmarkTools`
+
+A `BenchmarkTools.Benchmark`/`Trial` only knows how to run a closure and record timings -- it
+carries no metadata about *why* that closure exists. `BenchmarkCase` is our own struct that
+keeps the `AbstractCaseSpec` (needed for the `flops`/`bytes` cost model) and `params`
+(the sweep values that produced it) alongside each case, so `resultstable` can join timings
+back against cost figures after the fact. `build_suite` consumes a `Vector{BenchmarkCase}` and
+produces an ordinary `BenchmarkGroup`; nothing downstream of that ever sees `BenchmarkCase`
+again.
+
+Filtering uses `BenchmarkGroup`'s native tags, not a bespoke mechanism: each case is wrapped as
+`BenchmarkGroup(casetags(case), "benchmark" => ...)`, where `casetags` is the category name plus
+every `Symbol`-valued `params` entry (`source`, `kind`, `variant`, `layout`, ...). Filter the
+*built* suite with `@tagged` (re-exported from BenchmarkTools) before running it:
+
+```julia
+suite = build_suite(providers)
+run(suite[@tagged "tccg"])                    # only the TCCG-sourced pairwise cases
+run(suite[@tagged "pairwise" && "both_permuted"])  # boolean tag expressions work
+```
 
 ## Plugging in a downstream tensor type
 
