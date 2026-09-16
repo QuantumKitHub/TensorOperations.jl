@@ -8,7 +8,7 @@ Pkg.activate(joinpath(@__DIR__, ".."))
 using ArgParse
 using PkgBenchmark
 
-function parse_commandline()
+function parse_commandline(args)
     s = ArgParseSettings(; description = "Run the TensorOperationsBenchmarks suite via PkgBenchmark.")
     @add_arg_table! s begin
         "--threads"
@@ -30,23 +30,28 @@ function parse_commandline()
         help = "output file prefix (a suffix identifying the thread combo and `.json` are appended)"
         default = "results"
     end
-    return parse_args(s)
+    return parse_args(args, s)
 end
 
-opts = parse_commandline()
-blascounts = isempty(opts["blas-threads"]) ? [nothing] : opts["blas-threads"]
-stridedcounts = isempty(opts["strided-threads"]) ? [nothing] : opts["strided-threads"]
+function main(args)
+    opts = parse_commandline(args)
+    blascounts = isempty(opts["blas-threads"]) ? [nothing] : opts["blas-threads"]
+    stridedcounts = isempty(opts["strided-threads"]) ? [nothing] : opts["strided-threads"]
 
-for nthreads in opts["threads"], blas in blascounts, strided in stridedcounts
-    @info "Running benchmarks" nthreads blas strided
-    withenv(
-        "TOB_BLAS_THREADS" => blas === nothing ? "" : string(blas),
-        "TOB_STRIDED_THREADS" => strided === nothing ? "" : string(strided),
-    ) do
-        cfg = BenchmarkConfig(; juliacmd = `julia -t $nthreads -O3`)
-        results = benchmarkpkg(dirname(@__DIR__), cfg)
-        outfile = "$(opts["out"])_t$(nthreads)_blas$(blas)_strided$(strided).json"
-        writeresults(outfile, results)
-        @info "Wrote $outfile"
+    for nthreads in opts["threads"], blas in blascounts, strided in stridedcounts
+        @info "Running benchmarks" nthreads blas strided
+        withenv(
+            "TOB_BLAS_THREADS" => blas === nothing ? "" : string(blas),
+            "TOB_STRIDED_THREADS" => strided === nothing ? "" : string(strided),
+        ) do
+            cfg = BenchmarkConfig(; juliacmd = `julia -t $nthreads -O3`)
+            results = benchmarkpkg(dirname(@__DIR__), cfg)
+            outfile = "$(opts["out"])_t$(nthreads)_blas$(blas)_strided$(strided).json"
+            writeresults(outfile, results)
+            @info "Wrote $outfile"
+        end
     end
+    return 0
 end
+
+@main

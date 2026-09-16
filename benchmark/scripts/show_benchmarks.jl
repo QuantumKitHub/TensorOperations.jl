@@ -9,7 +9,7 @@ using PkgBenchmark
 using CairoMakie
 using TensorOperationsBenchmarks
 
-function parse_commandline()
+function parse_commandline(args)
     s = ArgParseSettings(; description = "Plot GFLOP/s-vs-size scaling curves from a PkgBenchmark result.")
     @add_arg_table! s begin
         "resultfile"
@@ -19,34 +19,39 @@ function parse_commandline()
         help = "output image path (default: replace the input's extension with .png)"
         default = nothing
     end
-    return parse_args(s)
+    return parse_args(args, s)
 end
 
-opts = parse_commandline()
-results = PkgBenchmark.readresults(opts["resultfile"])
-group = PkgBenchmark.benchmarkgroup(results)
+function main(args)
+    opts = parse_commandline(args)
+    results = PkgBenchmark.readresults(opts["resultfile"])
+    group = PkgBenchmark.benchmarkgroup(results)
 
-rows = resultstable(group)
+    rows = resultstable(group)
 
-fig = Figure(; size = (1000, 800))
-categories = unique(r.category for r in rows)
-for (i, category) in enumerate(categories)
-    ax = Axis(
-        fig[fldmod1(i, 2)...]; xscale = log2, yscale = log10,
-        title = category, xlabel = "size", ylabel = "GFLOP/s"
-    )
-    catrows = filter(r -> r.category == category, rows)
-    for provider in unique(r.provider for r in catrows)
-        provrows = filter(r -> r.provider == provider, catrows)
-        sort!(provrows; by = r -> get(r.params, :dim, get(r.params, :D, 0)))
-        xs = [get(r.params, :dim, get(r.params, :D, 0)) for r in provrows]
-        ys = [r.gflops for r in provrows]
-        lines!(ax, xs, ys; label = provider)
-        scatter!(ax, xs, ys)
+    fig = Figure(; size = (1000, 800))
+    categories = unique(r.category for r in rows)
+    for (i, category) in enumerate(categories)
+        ax = Axis(
+            fig[fldmod1(i, 2)...]; xscale = log2, yscale = log10,
+            title = category, xlabel = "size", ylabel = "GFLOP/s"
+        )
+        catrows = filter(r -> r.category == category, rows)
+        for provider in unique(r.provider for r in catrows)
+            provrows = filter(r -> r.provider == provider, catrows)
+            sort!(provrows; by = r -> get(r.params, :dim, get(r.params, :D, 0)))
+            xs = [get(r.params, :dim, get(r.params, :D, 0)) for r in provrows]
+            ys = [r.gflops for r in provrows]
+            lines!(ax, xs, ys; label = provider)
+            scatter!(ax, xs, ys)
+        end
+        axislegend(ax)
     end
-    axislegend(ax)
+
+    outfile = something(opts["out"], splitext(opts["resultfile"])[1] * ".png")
+    save(outfile, fig)
+    @info "Wrote $outfile"
+    return 0
 end
 
-outfile = something(opts["out"], splitext(opts["resultfile"])[1] * ".png")
-save(outfile, fig)
-@info "Wrote $outfile"
+@main
