@@ -13,7 +13,7 @@ function maketensors(spec::AddSpec, provider)
     A = randtensor(provider, spec.IA, dims, TA)
     pA = TensorOperations.add_indices(spec.IA, spec.IC)
     C = TensorOperations.tensoralloc_add(TC, A, pA, spec.conjA, Val(false), allocator(provider))
-    return (A, pA, C)
+    return (C, A, pA)
 end
 
 function maketensors(spec::TraceSpec, provider)
@@ -23,7 +23,7 @@ function maketensors(spec::TraceSpec, provider)
     A = randtensor(provider, spec.IA, dims, TA)
     p, q = TensorOperations.trace_indices(spec.IA, spec.IC)
     C = TensorOperations.tensoralloc_add(TC, A, p, spec.conjA, Val(false), allocator(provider))
-    return (A, p, q, C)
+    return (C, A, p, q)
 end
 
 function maketensors(spec::ContractSpec, provider)
@@ -38,7 +38,7 @@ function maketensors(spec::ContractSpec, provider)
     C = TensorOperations.tensoralloc_contract(
         TC, A, pA, spec.conjA, B, pB, spec.conjB, pAB, Val(false), allocator(provider)
     )
-    return (A, B, pA, pB, pAB, C)
+    return (C, A, pA, B, pB, pAB)
 end
 
 function maketensors(spec::NetworkSpec, provider)
@@ -49,20 +49,20 @@ function maketensors(spec::NetworkSpec, provider)
     end
 end
 
-function execute(spec::AddSpec, (A, pA, C), provider)
+function execute(spec::AddSpec, (C, A, pA), provider)
     return tensorcopy!(
         C, A, pA, spec.conjA, one(eltype(C)), backend(provider), allocator(provider)
     )
 end
 
-function execute(spec::TraceSpec, (A, p, q, C), provider)
+function execute(spec::TraceSpec, (C, A, p, q), provider)
     return tensortrace!(
         C, A, p, q, spec.conjA, one(eltype(C)), zero(eltype(C)),
         backend(provider), allocator(provider)
     )
 end
 
-function execute(spec::ContractSpec, (A, B, pA, pB, pAB, C), provider)
+function execute(spec::ContractSpec, (C, A, pA, B, pB, pAB), provider)
     return tensorcontract!(
         C, A, pA, spec.conjA, B, pB, spec.conjB, pAB, one(eltype(C)), zero(eltype(C)),
         backend(provider), allocator(provider)

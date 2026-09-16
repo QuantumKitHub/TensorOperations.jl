@@ -97,3 +97,39 @@ function NetworkSpec(
         collect(Int, outputindices), dims, order, Ts
     )
 end
+
+# Compact einsum-style show methods, e.g. `ContractSpec: C[i,j] = A[i,k] * B[k,j] (dim=64)`.
+_dimsnote(dims::Dict) = (vals = unique(values(dims)); length(vals) == 1 ? " (dim=$(only(vals)))" : " (dims=$dims)")
+_opstr(label, conj) = conj ? "conj($label)" : label
+
+function Base.show(io::IO, spec::AddSpec)
+    return print(
+        io, "AddSpec: C[", join(spec.IC, ","), "] = ",
+        _opstr("A[$(join(spec.IA, ","))]", spec.conjA), _dimsnote(spec.dims)
+    )
+end
+
+function Base.show(io::IO, spec::TraceSpec)
+    return print(
+        io, "TraceSpec: C[", join(spec.IC, ","), "] = tr(",
+        _opstr("A[$(join(spec.IA, ","))]", spec.conjA), ")", _dimsnote(spec.dims)
+    )
+end
+
+function Base.show(io::IO, spec::ContractSpec)
+    return print(
+        io, "ContractSpec: C[", join(spec.IC, ","), "] = ",
+        _opstr("A[$(join(spec.IA, ","))]", spec.conjA), " * ",
+        _opstr("B[$(join(spec.IB, ","))]", spec.conjB), _dimsnote(spec.dims)
+    )
+end
+
+function Base.show(io::IO, spec::NetworkSpec)
+    tensors = join(
+        (
+            _opstr("T$k[$(join(il, ","))]", conj)
+                for (k, (il, conj)) in enumerate(zip(spec.indexlists, spec.conjlist))
+        ), " * "
+    )
+    return print(io, "NetworkSpec: C[", join(spec.output, ","), "] = ", tensors, _dimsnote(spec.dims))
+end

@@ -22,7 +22,7 @@ function parse_commandline(args)
     return parse_args(args, s)
 end
 
-function main(args)
+function (@main)(args)
     opts = parse_commandline(args)
     results = PkgBenchmark.readresults(opts["resultfile"])
     group = PkgBenchmark.benchmarkgroup(results)
@@ -30,18 +30,18 @@ function main(args)
     rows = resultstable(group)
 
     fig = Figure(; size = (1000, 800))
-    categories = unique(r.category for r in rows)
+    categories = unique(r.category for r in eachrow(rows))
     for (i, category) in enumerate(categories)
         ax = Axis(
             fig[fldmod1(i, 2)...]; xscale = log2, yscale = log10,
             title = category, xlabel = "size", ylabel = "GFLOP/s"
         )
         catrows = filter(r -> r.category == category, rows)
-        for provider in unique(r.provider for r in catrows)
+        for provider in unique(r.provider for r in eachrow(catrows))
             provrows = filter(r -> r.provider == provider, catrows)
             sort!(provrows; by = r -> get(r.params, :dim, get(r.params, :D, 0)))
-            xs = [get(r.params, :dim, get(r.params, :D, 0)) for r in provrows]
-            ys = [r.gflops for r in provrows]
+            xs = [get(r.params, :dim, get(r.params, :D, 0)) for r in eachrow(provrows)]
+            ys = [r.gflops for r in eachrow(provrows)]
             lines!(ax, xs, ys; label = provider)
             scatter!(ax, xs, ys)
         end
@@ -53,5 +53,3 @@ function main(args)
     @info "Wrote $outfile"
     return 0
 end
-
-@main

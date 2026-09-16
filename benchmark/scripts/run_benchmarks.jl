@@ -33,7 +33,7 @@ function parse_commandline(args)
     return parse_args(args, s)
 end
 
-function main(args)
+function (@main)(args)
     opts = parse_commandline(args)
     blascounts = isempty(opts["blas-threads"]) ? [nothing] : opts["blas-threads"]
     stridedcounts = isempty(opts["strided-threads"]) ? [nothing] : opts["strided-threads"]
@@ -53,5 +53,3 @@ function main(args)
     end
     return 0
 end
-
-@main

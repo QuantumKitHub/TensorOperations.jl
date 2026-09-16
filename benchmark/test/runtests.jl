@@ -2,6 +2,7 @@ using Test
 using TensorOperationsBenchmarks
 using TensorOperations: StridedNative
 using BenchmarkTools
+using DataFrames: nrow
 using LinearAlgebra: BLAS
 using Strided: Strided
 
@@ -17,12 +18,12 @@ using Strided: Strided
     end
 
     @testset "resultstable joins timings with flop/byte counts" begin
-        suite = build_suite([provider]; categories = [:pairwise], sizes = (4, 8))
+        suite = build_suite([provider]; categories = [:contract], sizes = (4, 8))
         results = run(suite; samples = 1, evals = 1, seconds = 5)
-        rows = resultstable(results; categories = [:pairwise], sizes = (4, 8))
-        @test !isempty(rows)
-        @test all(r -> r.mintime > 0, rows)
-        @test all(r -> r.gflops isa Float64, rows)
+        rows = resultstable(results; categories = [:contract], sizes = (4, 8))
+        @test nrow(rows) > 0
+        @test all(>(0), rows.mintime)
+        @test all(x -> x isa Float64, rows.gflops)
     end
 
     @testset "mixed-precision cases execute" begin
@@ -32,8 +33,8 @@ using Strided: Strided
     end
 
     @testset "network cost matches ncon's own contraction tree" begin
-        cases = REGISTRY[:mps]((16,))
-        case = only(filter(c -> occursin("1site", c.id), cases))
+        cases = REGISTRY[:network]((16,))
+        case = only(filter(c -> occursin("mps_1site", c.id), cases))
         @test flops(case.spec) > 0
     end
 
@@ -60,58 +61,65 @@ using Strided: Strided
     end
 
     @testset "execute doesn't allocate a fresh output every call (preallocated in setup)" begin
-        cases = REGISTRY[:pairwise]((8,))
+        cases = REGISTRY[:contract]((8,))
         case = first(cases)
         ts = TensorOperationsBenchmarks.maketensors(case.spec, provider)
-        C_before = ts[end]
+        C_before = ts[1]
         C_after = TensorOperationsBenchmarks.execute(case.spec, ts, provider)
         @test C_after === C_before
     end
 
-    @testset "mps category covers 1-site and 2-site variants" begin
-        cases = REGISTRY[:mps]((16,))
-        @test any(c -> occursin("1site", c.id), cases)
-        @test any(c -> occursin("2site", c.id), cases)
+    @testset "network category covers mps/ctmrg/trg topics" begin
+        cases = REGISTRY[:network]((16,))
+        @test any(c -> c.params.topic == :mps && c.params.variant == :onesite, cases)
+        @test any(c -> c.params.topic == :mps && c.params.variant == :twosite, cases)
+        @test any(c -> c.params.topic == :ctmrg, cases)
+        @test any(c -> c.params.topic == :trg, cases)
     end
 
-    @testset "tccg cases are merged into :pairwise, filterable via @tagged" begin
-        cases = REGISTRY[:pairwise]((4,))
+    @testset "tccg cases are merged into :contract, filterable via @tagged" begin
+        cases = REGISTRY[:contract]((4,))
         tccg_cases = filter(c -> c.params.source == :tccg, cases)
         @test length(TensorOperationsBenchmarks.TCCG_CONTRACTIONS) == 24
         @test any(c -> c.params.source == :synthetic, cases)
         for prefix in ("ccsd_", "ccsd_t_", "ao2mo_", "intensli_")
             @test any(c -> startswith(c.params.equation, prefix), tccg_cases)
         end
-        suite = build_suite([provider]; categories = [:pairwise], sizes = (4,))
+        suite = build_suite([provider]; categories = [:contract], sizes = (4,))
         results = run(suite[@tagged "tccg"]; samples = 1, evals = 1, seconds = 5)
-        @test !isempty(results["pairwise"][label(provider)])
-        @test length(results["pairwise"][label(provider)]) == length(tccg_cases)
+        @test !isempty(results["contract"][label(provider)])
+        @test length(results["contract"][label(provider)]) == length(tccg_cases)
     end
 
-    @testset "casetags derives from category + Symbol-valued params" begin
+    @testset "BenchmarkCase stores tags derived from category + Symbol-valued params" begin
         case = first(REGISTRY[:trace]((8,)))
-        tags = casetags(case)
-        @test "trace" in tags
-        @test string(case.params.kind) in tags
+        @test "trace" in case.tags
+        @test string(case.params.kind) in case.tags
     end
 
-    @testset "pairwise permuted-stride layouts are structurally distinct and filterable" begin
-        cases = REGISTRY[:pairwise]((8,))
+    @testset "contract permuted-stride layouts are structurally distinct and filterable" begin
+        cases = REGISTRY[:contract]((8,))
         layouts = unique(c.params.layout for c in cases if c.params.source == :synthetic)
         @test :gemm_ready in layouts
         @test :both_permuted in layouts
 
-        suite = build_suite([provider]; categories = [:pairwise], sizes = (8,))
+        suite = build_suite([provider]; categories = [:contract], sizes = (8,))
         results = run(suite[@tagged "both_permuted"]; samples = 1, evals = 1, seconds = 5)
         n_expected = count(c -> c.params.source == :synthetic && c.params.layout == :both_permuted, cases)
-        @test length(results["pairwise"][label(provider)]) == n_expected
+        @test length(results["contract"][label(provider)]) == n_expected
     end
 
-    @testset "ctmrg and trg categories execute" begin
-        for category in (:ctmrg, :trg)
-            suite = build_suite([provider]; categories = [category], sizes = (8,))
-            results = run(suite; samples = 1, evals = 1, seconds = 5)
-            @test !isempty(results[String(category)][label(provider)])
-        end
+    @testset "within_memory_budget(spec, id) warns when skipping an oversized case" begin
+        spec = ContractSpec([:a1, :a2], [:a2, :b1], [:a1, :b1], Dict(:a1 => 8, :a2 => 8, :b1 => 8))
+        # override maxbytes (rather than relying on the host's memory-scaled default) so this
+        # test is deterministic regardless of how much RAM the machine running it has.
+        @test_logs (:warn, r"exceeds memory budget") within_memory_budget(spec, "tiny_budget_test"; maxbytes = 10)
+    end
+
+    @testset "specs have informative show methods" begin
+        spec = ContractSpec([:i, :k], [:k, :j], [:i, :j], Dict(:i => 4, :j => 4, :k => 4))
+        @test occursin("C[i,j]", sprint(show, spec))
+        @test occursin("A[i,k]", sprint(show, spec))
+        @test occursin("B[k,j]", sprint(show, spec))
     end
 end

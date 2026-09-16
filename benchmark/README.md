@@ -26,9 +26,9 @@ julia --project=. scripts/run_benchmarks.jl --threads 1 4 --blas-threads 1 4
 julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # requires CairoMakie
 ```
 
-## Categories (v1)
+## Categories
 
-- `:pairwise` -- generic pairwise contractions: a synthetic parametric shape family (tagged
+- `:contract` -- generic pairwise contractions: a synthetic parametric shape family (tagged
   `synthetic`) plus 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from
   the [TCCG benchmark](https://github.com/HPAC/tccg) (tagged `tccg`). Each synthetic shape also
   comes in up to 4 label-order layouts (tagged `gemm_ready`/`a_permuted`/`b_permuted`/
@@ -39,10 +39,10 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
 - `:trace` -- partial and full traces.
 - `:mixed_precision` -- differing input/output element types (e.g. `Float32 x Float32 ->
   Float64`, mixed real/complex).
-- `:mps` -- MPS/MPO DMRG effective-Hamiltonian motif (1-site and 2-site "theta"), swept over
-  bond dimension `D`.
-- `:ctmrg` -- CTMRG corner-growth step (2D PEPS boundary-MPS), swept over environment bond `chi`.
-- `:trg` -- TRG plaquette contraction (4-ring of rank-3 tensors), swept over bond `chi`.
+- `:network` -- multi-tensor-network motifs, tagged by `topic`: `mps` (MPS/MPO DMRG
+  effective-Hamiltonian, 1-site and 2-site "theta", swept over bond `D`), `ctmrg` (CTMRG
+  corner-growth step for 2D PEPS, swept over environment bond `chi`), `trg` (TRG plaquette
+  contraction, swept over bond `chi`).
 
 Not yet implemented, but addable without a redesign: MERA, contraction-order/path-finding timing.
 
@@ -50,28 +50,9 @@ Not yet implemented, but addable without a redesign: MERA, contraction-order/pat
 
 New file under `src/categories/`, define `mysizes -> Vector{BenchmarkCase}` building
 `ContractSpec`/`TraceSpec`/`AddSpec`/`NetworkSpec` values, `include` it, call
-`register_category!(:mycategory, mygenerator)`. Nothing else changes.
-
-## `BenchmarkCase` vs. plain `BenchmarkTools`
-
-A `BenchmarkTools.Benchmark`/`Trial` only knows how to run a closure and record timings -- it
-carries no metadata about *why* that closure exists. `BenchmarkCase` is our own struct that
-keeps the `AbstractCaseSpec` (needed for the `flops`/`bytes` cost model) and `params`
-(the sweep values that produced it) alongside each case, so `resultstable` can join timings
-back against cost figures after the fact. `build_suite` consumes a `Vector{BenchmarkCase}` and
-produces an ordinary `BenchmarkGroup`; nothing downstream of that ever sees `BenchmarkCase`
-again.
-
-Filtering uses `BenchmarkGroup`'s native tags, not a bespoke mechanism: each case is wrapped as
-`BenchmarkGroup(casetags(case), "benchmark" => ...)`, where `casetags` is the category name plus
-every `Symbol`-valued `params` entry (`source`, `kind`, `variant`, `layout`, ...). Filter the
-*built* suite with `@tagged` (re-exported from BenchmarkTools) before running it:
-
-```julia
-suite = build_suite(providers)
-run(suite[@tagged "tccg"])                    # only the TCCG-sourced pairwise cases
-run(suite[@tagged "pairwise" && "both_permuted"])  # boolean tag expressions work
-```
+`register_category!(:mycategory, mygenerator)`. Nothing else changes. Filtering uses
+`BenchmarkGroup`'s native tags (`suite[@tagged "..."]`, see `BenchmarkCase`'s docstring for how
+tags are derived) -- no bespoke filter API to learn.
 
 ## Plugging in a downstream tensor type
 

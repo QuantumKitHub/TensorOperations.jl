@@ -1,7 +1,7 @@
 # Nests a BenchmarkGroup as [category][provider label][case id]["benchmark"]. Each case-id leaf
-# is itself a tagged BenchmarkGroup (tags from `casetags`: category + Symbol-valued params), so
-# `suite[BenchmarkTools.@tagged "tccg"]` (or any boolean tag expression) selects a subset of
-# cases natively -- no bespoke filter predicate needed. No threading axis -- see threading.jl.
+# is itself a tagged BenchmarkGroup (using `case.tags`), so `suite[BenchmarkTools.@tagged
+# "tccg"]` (or any boolean tag expression) selects a subset of cases natively -- no bespoke
+# filter predicate needed. No threading axis -- see threading.jl.
 
 """
     build_suite(providers; categories=collect(keys(REGISTRY)), sizes=nothing)
@@ -14,7 +14,7 @@ Build a `BenchmarkTools.BenchmarkGroup` covering every registered category (or t
 every category, or a `Dict{Symbol}` mapping category name to its own size sweep.
 
 To run only a tagged subset, filter *after* building: `suite[@tagged "tccg"]` (re-exported from
-BenchmarkTools), or combine tags: `suite[@tagged "pairwise" && "tccg"]`.
+BenchmarkTools), or combine tags: `suite[@tagged "contract" && "tccg"]`.
 """
 function build_suite(
         providers::AbstractVector{<:AbstractProvider};
@@ -32,7 +32,7 @@ function build_suite(
             provgroup = catgroup[label(provider)] = BenchmarkGroup()
             for case in cases
                 provgroup[case.id] = BenchmarkGroup(
-                    casetags(case), "benchmark" => make_benchmarkable(case, provider)
+                    case.tags, "benchmark" => make_benchmarkable(case, provider)
                 )
             end
         end
