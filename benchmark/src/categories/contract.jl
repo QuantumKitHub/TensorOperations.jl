@@ -8,7 +8,7 @@
 # a real permutation -- exactly the case that separates StridedNative from StridedBLAS. Layouts
 # that coincide with the GEMM one (e.g. when a shape has ≤1 contracted index) are skipped.
 
-const PAIRWISE_SHAPES = (
+const CONTRACT_SHAPES = (
     (1, 1, 1),   # matrix-vector-like
     (2, 1, 2),   # single shared bond, several open legs each side
     (2, 2, 2),   # GEMM-like, rank 4 total
@@ -21,7 +21,7 @@ function _interleave(a::Vector{Symbol}, b::Vector{Symbol})
     return vcat((Symbol[a[i], b[i]] for i in 1:n)..., a[(n + 1):end], b[(n + 1):end])
 end
 
-function _pairwise_layouts(openA, contract, openB)
+function _contract_layouts(openA, contract, openB)
     gemmA, gemmB = vcat(openA, contract), vcat(contract, openB)
     permA, permB = _interleave(openA, contract), _interleave(contract, openB)
     candidates = (
@@ -40,30 +40,30 @@ function _pairwise_layouts(openA, contract, openB)
     return layouts
 end
 
-function _synthetic_pairwise_cases(sizes)
+function _synthetic_contract_cases(sizes)
     cases = BenchmarkCase[]
     for dim in sizes
-        for (nopenA, ncontract, nopenB) in PAIRWISE_SHAPES
+        for (nopenA, ncontract, nopenB) in CONTRACT_SHAPES
             openA = [Symbol("a", i) for i in 1:nopenA]
             contract = [Symbol("c", i) for i in 1:ncontract]
             openB = [Symbol("b", i) for i in 1:nopenB]
             IC = vcat(openA, openB)
-            for (layout, IA, IB) in _pairwise_layouts(openA, contract, openB)
+            for (layout, IA, IB) in _contract_layouts(openA, contract, openB)
                 dims = Dict{Symbol, Int}(l => dim for l in vcat(IA, IB))
                 spec = ContractSpec(IA, IB, IC, dims)
-                within_memory_budget(spec) || continue
                 id = "dim$(dim)_$(nopenA)_$(ncontract)_$(nopenB)_$(layout)"
+                within_memory_budget(spec, id) || continue
                 params = (; dim, nopenA, ncontract, nopenB, layout, source = :synthetic)
-                push!(cases, BenchmarkCase(:pairwise, id, params, spec))
+                push!(cases, BenchmarkCase(:contract, id, params, spec))
             end
         end
     end
     return cases
 end
 
-_pairwise_cases(sizes) = vcat(_synthetic_pairwise_cases(sizes), _tccg_cases(sizes))
+_contract_cases(sizes) = vcat(_synthetic_contract_cases(sizes), _tccg_cases(sizes))
 
 register_category!(
-    :pairwise, _pairwise_cases;
+    :contract, _contract_cases;
     sizes = (8, 12, 15, 16, 24, 32, 63, 96, 128, 200, 256)
 )

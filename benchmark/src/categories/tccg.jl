@@ -1,7 +1,7 @@
 # Real quantum-chemistry contractions from the TCCG benchmark (github.com/HPAC/tccg): CCSD,
 # CCSD(T), AO2MO, INTENSLI, as "C-A-B" index strings (e.g. "ij-ik-kj" = C[i,j]=A[i,k]*B[k,j]).
 # `sizes` applies one leg dimension uniformly to every index letter, as TCCG itself does.
-# Merged into `:pairwise` (see pairwise.jl) tagged `params.source = :tccg`, not its own category.
+# Merged into `:contract` (see contract.jl) tagged `params.source = :tccg`, not its own category.
 
 const TCCG_CONTRACTIONS = (
     # CCSD
@@ -43,10 +43,10 @@ function _tccg_cases(sizes)
             IA, IB, IC = _tccg_labels(eq.A), _tccg_labels(eq.B), _tccg_labels(eq.C)
             dims = Dict{Symbol, Int}(l => dim for l in vcat(IA, IB))
             spec = ContractSpec(IA, IB, IC, dims)
-            within_memory_budget(spec) || continue
             id = "$(eq.id)_dim$(dim)"
+            within_memory_budget(spec, id) || continue
             params = (; dim, equation = eq.id, source = :tccg)
-            push!(cases, BenchmarkCase(:pairwise, id, params, spec))
+            push!(cases, BenchmarkCase(:contract, id, params, spec))
         end
     end
     return cases

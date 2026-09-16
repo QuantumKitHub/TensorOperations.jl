@@ -1,6 +1,7 @@
 # CTMRG corner-growth step (boundary-MPS method for 2D PEPS): C-T-T-a, producing an unfused
 # rank-4 corner (chi,chi,D2,D2). Cost ~ O(chi^3*D2^3) (literature O(chi^3*D^6), D2=D^2).
-# `sizes` sweeps environment bond `chi`; PEPS bond `D` is fixed.
+# `sizes` sweeps environment bond `chi`; PEPS bond `D` is fixed. Merged into `:network` (see
+# network.jl) tagged `params.topic = :ctmrg`.
 
 const CTMRG_PEPS_BOND = 3   # D
 
@@ -14,9 +15,8 @@ function _ctmrg_case(chi)
     ]
     dims = Dict(1 => chi, 2 => chi, 3 => D2, 4 => D2, 10 => chi, 11 => chi, 12 => D2, 13 => D2)
     spec = NetworkSpec(indexlists, dims; output = [-10, -11, -12, -13])
-    return BenchmarkCase(:ctmrg, "corner_chi$(chi)", (; chi, D = CTMRG_PEPS_BOND), spec)
+    params = (; chi, D = CTMRG_PEPS_BOND, topic = :ctmrg)
+    return BenchmarkCase(:network, "ctmrg_corner_chi$(chi)", params, spec)
 end
 
 _ctmrg_cases(sizes) = [_ctmrg_case(chi) for chi in sizes]
-
-register_category!(:ctmrg, _ctmrg_cases; sizes = (16, 24, 32, 48, 64, 100))

@@ -1,5 +1,6 @@
 # MPS/MPO DMRG effective-Hamiltonian motif (L-MPS-MPO-R, cost ~ O(D^3*d*w)) plus the 2-site
-# "theta" variant (L-MPS-MPO-MPO-MPS-R), swept over bond dimension `D`.
+# "theta" variant (L-MPS-MPO-MPO-MPS-R), swept over bond dimension `D`. Merged into `:network`
+# (see network.jl) tagged `params.topic = :mps`.
 
 const MPS_PHYS_DIM = 2   # d: physical dimension (spin-1/2)
 const MPS_MPO_BOND = 6   # w: MPO bond dimension (local Hamiltonian)
@@ -16,7 +17,8 @@ function _mps_1site_case(D)
     ]
     dims = Dict(1 => w, 2 => D, 3 => d, 4 => D, 5 => w, 10 => D, 11 => d, 12 => D)
     spec = NetworkSpec(indexlists, dims; output = [-10, -11, -12])
-    return BenchmarkCase(:mps, "1site_D$(D)", (; D, d, w, variant = :onesite), spec)
+    params = (; D, d, w, topic = :mps, variant = :onesite)
+    return BenchmarkCase(:network, "mps_1site_D$(D)", params, spec)
 end
 
 function _mps_2site_case(D)
@@ -34,7 +36,8 @@ function _mps_2site_case(D)
     ]
     dims = Dict(1 => w, 2 => D, 3 => d, 4 => D, 5 => d, 6 => w, 7 => w, 8 => D, 10 => D, 11 => d, 12 => D, 13 => d)
     spec = NetworkSpec(indexlists, dims; output = [-10, -11, -13, -12])
-    return BenchmarkCase(:mps, "2site_D$(D)", (; D, d, w, variant = :twosite), spec)
+    params = (; D, d, w, topic = :mps, variant = :twosite)
+    return BenchmarkCase(:network, "mps_2site_D$(D)", params, spec)
 end
 
 function _mps_cases(sizes)
@@ -43,5 +46,3 @@ function _mps_cases(sizes)
         BenchmarkCase[_mps_2site_case(D) for D in sizes]
     )
 end
-
-register_category!(:mps, _mps_cases; sizes = (32, 48, 64, 100, 128, 256, 300, 512))
