@@ -16,12 +16,12 @@ include("lowering.jl")
 include("suite.jl")
 include("report.jl")
 
+include("categories/tccg.jl")       # defines _tccg_cases, merged into :pairwise below
 include("categories/pairwise.jl")
 include("categories/permute.jl")
 include("categories/trace.jl")
 include("categories/mixed_precision.jl")
 include("categories/mps.jl")
-include("categories/tccg.jl")
 include("categories/ctmrg.jl")
 include("categories/trg.jl")
 

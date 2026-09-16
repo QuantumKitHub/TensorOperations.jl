@@ -27,16 +27,16 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
 
 ## Categories (v1)
 
-- `:pairwise` -- generic pairwise contractions across open/contracted/batch index splits.
+- `:pairwise` -- generic pairwise contractions: a synthetic parametric shape family
+  (`params.source == :synthetic`) plus 24 real quantum-chemistry contractions (CCSD, CCSD(T),
+  AO2MO, INTENSLI) from the [TCCG benchmark](https://github.com/HPAC/tccg)
+  (`params.source == :tccg`). Use `build_suite`'s `casefilter` to select either subset.
 - `:permute` -- permutation-only (`tensorcopy!`) cost.
 - `:trace` -- partial and full traces.
 - `:mixed_precision` -- differing input/output element types (e.g. `Float32 x Float32 ->
   Float64`, mixed real/complex).
 - `:mps` -- MPS/MPO DMRG effective-Hamiltonian motif (1-site and 2-site "theta"), swept over
   bond dimension `D`.
-- `:tccg` -- 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from the
-  [TCCG benchmark](https://github.com/HPAC/tccg); a source of real high-rank, irregular
-  index-split shapes rather than hand-picked ones.
 - `:ctmrg` -- CTMRG corner-growth step (2D PEPS boundary-MPS), swept over environment bond `chi`.
 - `:trg` -- TRG plaquette contraction (4-ring of rank-3 tensors), swept over bond `chi`.
 
