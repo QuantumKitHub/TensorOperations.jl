@@ -102,7 +102,7 @@ function EnzymeRules.reverse(
         ΔA = A_dA.dval
         TensorOperations.tensorcontract_pullback_dA!(ΔA, ΔC, Cval, Aval, pA, conjA, Bval, pB, conjB, pAB, α, ba...)
     end
-    if !isa(B_dB, Const) && B_dB.dval !== B.val && !isa(C_dC, Const)
+    if !isa(B_dB, Const) && B_dB.dval !== B_dB.val && !isa(C_dC, Const)
         ΔC = C_dC.dval
         ΔB = B_dB.dval
         TensorOperations.tensorcontract_pullback_dB!(ΔB, ΔC, Cval, Aval, pA, conjA, Bval, pB, conjB, pAB, α, ba...)
