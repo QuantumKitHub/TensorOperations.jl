@@ -189,7 +189,7 @@ function EnzymeRules.augmented_primal(
     ) where {RT, Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
     # form caches if needed
     cache_A = EnzymeRules.overwritten(config)[3] ? copy(A_dA.val) : nothing
-    cache_C = !iszero(β_dβ.val) ? copy(C_dC.val) : C_dC.val
+    cache_C = !isa(β_dβ, Const) ? copy(C_dC.val) : nothing
     ba = map(ba_ -> getfield(ba_, :val), ba_dba)
     α = α_dα.val
     β = β_dβ.val
