@@ -2,6 +2,8 @@ using TensorOperations
 using TensorOperations: StridedBLAS, StridedNative
 using Test
 using ChainRulesTestUtils
+using ChainRulesCore: rrule, NoTangent
+using VectorInterface: Zero, One
 
 ChainRulesTestUtils.test_method_tables()
 
@@ -23,6 +25,7 @@ ChainRulesTestUtils.test_method_tables()
 
     test_rrule(tensortrace!, C, A, p, q, false, α, β; atol, rtol)
     test_rrule(tensortrace!, C, A, p, q, true, α, β; atol, rtol)
+    test_rrule(tensortrace!, C, A, p, q, false, α, Zero() ⊢ NoTangent(); atol, rtol)
 
     test_rrule(tensortrace!, C, A, p, q, true, α, β, StridedBLAS(); atol, rtol)
     test_rrule(tensortrace!, C, A, p, q, false, α, β, StridedNative(); atol, rtol)
@@ -52,6 +55,7 @@ end
     β = rand(T)
     test_rrule(tensoradd!, C, A, pA, false, α, β; atol, rtol)
     test_rrule(tensoradd!, C, A, pA, true, α, β; atol, rtol)
+    test_rrule(tensoradd!, C, A, pA, true, α, Zero() ⊢ NoTangent(); atol, rtol)
 
     test_rrule(tensoradd!, C, A, pA, false, α, β, StridedBLAS(); atol, rtol)
     test_rrule(tensoradd!, C, A, pA, true, α, β, StridedNative(); atol, rtol)
@@ -80,6 +84,7 @@ end
     test_rrule(tensorcontract!, C, A, pA, true, B, pB, false, pAB, α, β; atol, rtol)
     test_rrule(tensorcontract!, C, A, pA, false, B, pB, true, pAB, α, β; atol, rtol)
     test_rrule(tensorcontract!, C, A, pA, true, B, pB, true, pAB, α, β; atol, rtol)
+    test_rrule(tensorcontract!, C, A, pA, false, B, pB, true, pAB, α, Zero() ⊢ NoTangent(); atol, rtol)
 
     test_rrule(
         tensorcontract!, C, A, pA, false, B, pB, false, pAB, α, β, StridedBLAS();
@@ -98,4 +103,11 @@ end
     C = Array{T, 0}(undef, ())
     fill!(C, rand(T))
     test_rrule(tensorscalar, C; atol, rtol)
+end
+
+# with β = Zero(), `C` may be uninitialized, also for non-isbits element types
+@testset "β = Zero() with uninitialized C" begin
+    A = rand(BigFloat, 3, 4); B = rand(BigFloat, 4, 5)
+    C′, = rrule(tensorcontract!, similar(A, 3, 5), A, ((1,), (2,)), false, B, ((1,), (2,)), false, ((1, 2), ()), One(), Zero())
+    @test C′ ≈ A * B
 end
