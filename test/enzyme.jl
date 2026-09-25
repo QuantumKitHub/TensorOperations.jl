@@ -251,3 +251,12 @@ end
     test_reverse(tensorscalar, Active, (C, Duplicated); atol, rtol)
     test_forward(tensorscalar, Duplicated, (C, Duplicated); atol, rtol)
 end
+
+# dβ needs the original C whenever β is Active, also when its value is zero
+@testset "tensoradd! with Active β = 0" begin
+    pA = ((2, 1, 4, 3, 5), ())
+    A = rand(Float64, (2, 3, 4, 2, 1))
+    C = rand(Float64, size.(Ref(A), pA[1]))
+    test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (randn(), Active), (0.0, Active))
+    test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (randn(), Active), (randn(), Const))
+end
