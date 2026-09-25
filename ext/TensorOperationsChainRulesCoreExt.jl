@@ -58,10 +58,6 @@ function ChainRulesCore.rrule(::typeof(tensorscalar), C)
     return tensorscalar(C), tensorscalar_pullback
 end
 
-# with β = Zero() the contents of `C` are not used, but some kernels need defined entries
-_output_buffer(C, β) = copy(C)
-_output_buffer(C, ::Zero) = isbitstype(scalartype(C)) ? similar(C) : zerovector!!(similar(C))
-
 # The current `rrule` design makes sure that the implementation for custom types does
 # not need to support the backend or allocator arguments
 function ChainRulesCore.rrule(
@@ -74,7 +70,7 @@ function ChainRulesCore.rrule(
     return _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
 end
 function _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
-    C′ = tensoradd!(_output_buffer(C, β), A, pA, conjA, α, β, ba...)
+    C′ = tensoradd!(copy(C), A, pA, conjA, α, β, ba...)
     # only keep `C` alive on the tape if `dβ` needs it
     C_β = _needs_tangent(β) ? C : nothing
 
@@ -117,7 +113,7 @@ function ChainRulesCore.rrule(
     return _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
 end
 function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
-    C′ = tensorcontract!(_output_buffer(C, β), A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
+    C′ = tensorcontract!(copy(C), A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
     C_β = _needs_tangent(β) ? C : nothing
 
     projectA = ProjectTo(A)
@@ -162,7 +158,7 @@ function ChainRulesCore.rrule(
     return _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
 end
 function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
-    C′ = tensortrace!(_output_buffer(C, β), A, p, q, conjA, α, β, ba...)
+    C′ = tensortrace!(copy(C), A, p, q, conjA, α, β, ba...)
     C_β = _needs_tangent(β) ? C : nothing
 
     projectA = ProjectTo(A)

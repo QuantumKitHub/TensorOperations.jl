@@ -2,8 +2,8 @@ using TensorOperations
 using TensorOperations: StridedBLAS, StridedNative
 using Test
 using ChainRulesTestUtils
-using ChainRulesCore: rrule, NoTangent
-using VectorInterface: Zero, One
+using ChainRulesCore: NoTangent
+using VectorInterface: Zero
 
 ChainRulesTestUtils.test_method_tables()
 
@@ -103,11 +103,4 @@ end
     C = Array{T, 0}(undef, ())
     fill!(C, rand(T))
     test_rrule(tensorscalar, C; atol, rtol)
-end
-
-# with β = Zero(), `C` may be uninitialized, also for non-isbits element types
-@testset "β = Zero() with uninitialized C" begin
-    A = rand(BigFloat, 3, 4); B = rand(BigFloat, 4, 5)
-    C′, = rrule(tensorcontract!, similar(A, 3, 5), A, ((1,), (2,)), false, B, ((1,), (2,)), false, ((1, 2), ()), One(), Zero())
-    @test C′ ≈ A * B
 end
