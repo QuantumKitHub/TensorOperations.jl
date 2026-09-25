@@ -71,6 +71,8 @@ function ChainRulesCore.rrule(
 end
 function _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
     C′ = tensoradd!(copy(C), A, pA, conjA, α, β, ba...)
+    # only keep `C` alive on the tape if `dβ` needs it
+    C_β = _needs_tangent(β) ? C : nothing
 
     projectA = ProjectTo(A)
     projectC = ProjectTo(C)
@@ -81,16 +83,16 @@ function _rrule_tensoradd!(C, A, pA, conjA, α, β, ba)
         ΔC = unthunk(ΔC′)
 
         dC = β === Zero() ? ZeroTangent() : @thunk projectC(pullback_dC(ΔC, β))
-        dA = @thunk projectA(tensoradd_pullback_dA(ΔC, C, A, pA, conjA, α, ba...))
+        dA = @thunk projectA(tensoradd_pullback_dA(ΔC, C_β, A, pA, conjA, α, ba...))
         dα = if _needs_tangent(α)
-            @thunk projectα(tensoradd_pullback_dα(ΔC, C, A, pA, conjA, α, ba...))
+            @thunk projectα(tensoradd_pullback_dα(ΔC, C_β, A, pA, conjA, α, ba...))
         else
             ZeroTangent()
         end
         dβ = if _needs_tangent(β)
-            @thunk projectβ(pullback_dβ(ΔC, C, β))
+            @thunk projectβ(pullback_dβ(ΔC, C_β, β))
         else
-            ZeroTangent()
+            NoTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC, dA, NoTangent(), NoTangent(), dα, dβ, dba...
@@ -112,6 +114,7 @@ function ChainRulesCore.rrule(
 end
 function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
     C′ = tensorcontract!(copy(C), A, pA, conjA, B, pB, conjB, pAB, α, β, ba...)
+    C_β = _needs_tangent(β) ? C : nothing
 
     projectA = ProjectTo(A)
     projectB = ProjectTo(B)
@@ -123,17 +126,17 @@ function _rrule_tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, α, β, ba)
         ΔC = unthunk(ΔC′)
 
         dC = β === Zero() ? ZeroTangent() : @thunk projectC(pullback_dC(ΔC, β))
-        dA = @thunk projectA(tensorcontract_pullback_dA(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
-        dB = @thunk projectB(tensorcontract_pullback_dB(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
+        dA = @thunk projectA(tensorcontract_pullback_dA(ΔC, C_β, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
+        dB = @thunk projectB(tensorcontract_pullback_dB(ΔC, C_β, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
         dα = if _needs_tangent(α)
-            @thunk projectα(tensorcontract_pullback_dα(ΔC, C, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
+            @thunk projectα(tensorcontract_pullback_dα(ΔC, C_β, A, pA, conjA, B, pB, conjB, pAB, α, ba...))
         else
             ZeroTangent()
         end
         dβ = if _needs_tangent(β)
-            @thunk projectβ(pullback_dβ(ΔC, C, β))
+            @thunk projectβ(pullback_dβ(ΔC, C_β, β))
         else
-            ZeroTangent()
+            NoTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC,
@@ -156,6 +159,7 @@ function ChainRulesCore.rrule(
 end
 function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
     C′ = tensortrace!(copy(C), A, p, q, conjA, α, β, ba...)
+    C_β = _needs_tangent(β) ? C : nothing
 
     projectA = ProjectTo(A)
     projectC = ProjectTo(C)
@@ -166,16 +170,16 @@ function _rrule_tensortrace!(C, A, p, q, conjA, α, β, ba)
         ΔC = unthunk(ΔC′)
 
         dC = β === Zero() ? ZeroTangent() : @thunk projectC(pullback_dC(ΔC, β))
-        dA = @thunk projectA(tensortrace_pullback_dA(ΔC, C, A, p, q, conjA, α, ba...))
+        dA = @thunk projectA(tensortrace_pullback_dA(ΔC, C_β, A, p, q, conjA, α, ba...))
         dα = if _needs_tangent(α)
-            @thunk projectα(tensortrace_pullback_dα(ΔC, C, A, p, q, conjA, α, ba...))
+            @thunk projectα(tensortrace_pullback_dα(ΔC, C_β, A, p, q, conjA, α, ba...))
         else
             ZeroTangent()
         end
         dβ = if _needs_tangent(β)
-            @thunk projectβ(pullback_dβ(ΔC, C, β))
+            @thunk projectβ(pullback_dβ(ΔC, C_β, β))
         else
-            ZeroTangent()
+            NoTangent()
         end
         dba = map(_ -> NoTangent(), ba)
         return NoTangent(), dC, dA, NoTangent(), NoTangent(), NoTangent(), dα, dβ, dba...
