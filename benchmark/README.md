@@ -14,7 +14,7 @@ julia --project=. -e '
                  ArrayProvider{Float64}(; backend=StridedBLAS())]
     suite = build_suite(providers)
     results = run(suite)
-    rows = resultstable(results)
+    rows = resultstable(results)   # includes gflops/gbps (measured) and intensity (flops/bytes, static)
 '
 ```
 
@@ -29,12 +29,18 @@ julia --project=. scripts/show_benchmarks.jl results_t4_blas4_strided.json   # r
 ## Categories
 
 - `:contract` -- generic pairwise contractions: a synthetic parametric shape family (tagged
-  `synthetic`) plus 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from
-  the [TCCG benchmark](https://github.com/HPAC/tccg) (tagged `tccg`). Each synthetic shape also
-  comes in up to 4 label-order layouts (tagged `gemm_ready`/`a_permuted`/`b_permuted`/
-  `both_permuted`): `gemm_ready` is directly reshapeable to a BLAS call, the others interleave
-  open/contracted labels so no reshape or transpose flag suffices -- a real permutation is
-  required, which is what actually separates `StridedNative` from `StridedBLAS`.
+  `synthetic`), 24 real quantum-chemistry contractions (CCSD, CCSD(T), AO2MO, INTENSLI) from the
+  [TCCG benchmark](https://github.com/HPAC/tccg) (tagged `tccg`), and a batch of independent
+  small contractions (tagged `batched`, tenferro-rs's `bij,bjk->bik` motif -- no fused
+  batched-GEMM primitive exists here, so it's real per-call dispatch overhead, not one bigger
+  call). Each synthetic shape also comes in up to 5 label-order layouts: `gemm_ready` is directly
+  reshapeable to a BLAS call; `a_permuted`/`b_permuted`/`both_permuted` interleave open and
+  contracted labels so no reshape or transpose flag suffices; `contract_scrambled` keeps the
+  contracted indices contiguous in both operands but in a *different relative order* between
+  them (TAPP's `D[a,d,e] = A[a,b,c]*B[c,d,e,b]`), which still isn't reshapeable despite looking
+  like it should be. Every case (any category) is auto-tagged `blas` when `isblasequivalent`
+  holds -- exactly `gemm_ready` among the above, but computed structurally, so e.g. TCCG
+  equations that happen to be GEMM-ready get it too.
 - `:permute` -- permutation-only (`tensorcopy!`) cost.
 - `:trace` -- partial and full traces.
 - `:mixed_precision` -- differing input/output element types (e.g. `Float32 x Float32 ->

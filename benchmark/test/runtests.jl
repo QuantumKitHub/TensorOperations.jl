@@ -116,6 +116,47 @@ using Strided: Strided
         @test_logs (:warn, r"exceeds memory budget") within_memory_budget(spec, "tiny_budget_test"; maxbytes = 10)
     end
 
+    @testset "isblasequivalent tags gemm-ready contractions, not permuted/scrambled ones" begin
+        cases = REGISTRY[:contract]((8,))
+        gemmcase = only(
+            filter(
+                c -> c.params.source == :synthetic && c.params.layout == :gemm_ready &&
+                    c.params.nopenA == 2 && c.params.ncontract == 1 && c.params.nopenB == 2,
+                cases
+            )
+        )
+        @test "blas" in gemmcase.tags
+        scrambledcases = filter(
+            c -> c.params.source == :synthetic && c.params.layout == :contract_scrambled, cases
+        )
+        @test !isempty(scrambledcases)
+        @test all(c -> !("blas" in c.tags), scrambledcases)
+        permutedcases = filter(
+            c -> c.params.source == :synthetic && c.params.layout == :both_permuted, cases
+        )
+        @test !isempty(permutedcases)
+        @test all(c -> !("blas" in c.tags), permutedcases)
+    end
+
+    @testset "batched contraction cases run as independent per-slice tensorcontract! calls" begin
+        cases = REGISTRY[:contract]((8,))
+        batchedcases = filter(c -> c.params.source == :batched, cases)
+        @test !isempty(batchedcases)
+        @test all(c -> !("blas" in c.tags), batchedcases)
+        case = first(batchedcases)
+        ts = TensorOperationsBenchmarks.maketensors(case.spec, provider)
+        Cs = TensorOperationsBenchmarks.execute(case.spec, ts, provider)
+        @test length(Cs) == case.spec.batch
+    end
+
+    @testset "resultstable reports a static arithmetic-intensity column" begin
+        suite = build_suite([provider]; categories = [:contract], sizes = (8,))
+        results = run(suite[@tagged "gemm_ready"]; samples = 1, evals = 1, seconds = 5)
+        rows = resultstable(results; categories = [:contract], sizes = (8,))
+        @test nrow(rows) > 0
+        @test all(>(0), rows.intensity)
+    end
+
     @testset "specs have informative show methods" begin
         spec = ContractSpec([:i, :k], [:k, :j], [:i, :j], Dict(:i => 4, :j => 4, :k => 4))
         @test occursin("C[i,j]", sprint(show, spec))

@@ -69,6 +69,37 @@ function ContractSpec(
 end
 
 """
+    BatchedContractSpec(batch, IA, IB, IC, dims, conjA=false, conjB=false, TA=nothing, TB=nothing, TC=nothing)
+
+`batch` independent pairwise contractions, each with the same label structure, executed as
+`batch` separate `tensorcontract!` calls -- TensorOperations has no fused batched-GEMM
+primitive, so this genuinely cannot collapse to one BLAS call, unlike a `ContractSpec` with a
+`:gemm_ready` layout. Models a "many small contractions" regime (e.g. attention-style batched
+matmuls) where per-call dispatch overhead dominates rather than raw FLOPs.
+"""
+struct BatchedContractSpec <: AbstractCaseSpec
+    batch::Int
+    IA::Vector{Symbol}
+    IB::Vector{Symbol}
+    IC::Vector{Symbol}
+    dims::Dict{Symbol, Int}
+    conjA::Bool
+    conjB::Bool
+    TA::Union{Nothing, Type}
+    TB::Union{Nothing, Type}
+    TC::Union{Nothing, Type}
+end
+function BatchedContractSpec(
+        batch, IA, IB, IC, dims; conjA::Bool = false, conjB::Bool = false,
+        TA = nothing, TB = nothing, TC = nothing
+    )
+    return BatchedContractSpec(
+        Int(batch), collect(Symbol, IA), collect(Symbol, IB), collect(Symbol, IC), dims,
+        conjA, conjB, TA, TB, TC
+    )
+end
+
+"""
     NetworkSpec(indexlists, conjlist, output, dims, order=nothing, Ts=nothing)
 
 An `ncon`-style multi-tensor network: `indexlists[k]` gives the signed integer index labels
@@ -119,6 +150,14 @@ end
 function Base.show(io::IO, spec::ContractSpec)
     return print(
         io, "ContractSpec: C[", join(spec.IC, ","), "] = ",
+        _opstr("A[$(join(spec.IA, ","))]", spec.conjA), " * ",
+        _opstr("B[$(join(spec.IB, ","))]", spec.conjB), _dimsnote(spec.dims)
+    )
+end
+
+function Base.show(io::IO, spec::BatchedContractSpec)
+    return print(
+        io, "BatchedContractSpec: ", spec.batch, " x C[", join(spec.IC, ","), "] = ",
         _opstr("A[$(join(spec.IA, ","))]", spec.conjA), " * ",
         _opstr("B[$(join(spec.IB, ","))]", spec.conjB), _dimsnote(spec.dims)
     )

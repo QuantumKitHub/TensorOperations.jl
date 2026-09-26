@@ -36,8 +36,8 @@ include("categories/ctmrg.jl")
 include("categories/trg.jl")
 include("categories/network.jl")
 
-export AbstractCaseSpec, AddSpec, TraceSpec, ContractSpec, NetworkSpec
-export flops, bytes
+export AbstractCaseSpec, AddSpec, TraceSpec, ContractSpec, BatchedContractSpec, NetworkSpec
+export flops, bytes, intensity, isblasequivalent
 export AbstractProvider, ArrayProvider, scalartype, randtensor, backend, allocator, label,
     supports, rng
 export ThreadConfig, with_threads, set_threads!

@@ -9,7 +9,8 @@ label within the category, `params` records the sweep parameters that produced i
 `BenchmarkTools.@tagged`-based filtering, see suite.jl) is computed once here and stored,
 rather than re-derived on demand: the category name, plus every `Symbol`-valued entry of
 `params` (e.g. `source`, `kind`, `variant`, `layout`, `topic`) -- a generator opts a `params`
-field into tag-filtering just by giving it a `Symbol` value.
+field into tag-filtering just by giving it a `Symbol` value. Also gets a `"blas"` tag when
+[`isblasequivalent`](@ref) holds for `spec`, regardless of category.
 """
 struct BenchmarkCase
     category::Symbol
@@ -20,6 +21,7 @@ struct BenchmarkCase
 end
 function BenchmarkCase(category::Symbol, id::AbstractString, params::NamedTuple, spec::AbstractCaseSpec)
     tags = Any[String(category); [string(v) for v in values(params) if v isa Symbol]]
+    isblasequivalent(spec) && push!(tags, "blas")
     return BenchmarkCase(category, String(id), params, tags, spec)
 end
 

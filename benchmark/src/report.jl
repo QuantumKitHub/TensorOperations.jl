@@ -7,10 +7,12 @@
 Flatten a benchmark-run result (with the same `[category][provider][id]["benchmark"]` nesting
 `build_suite` produces) into a `DataFrame` with columns `category`, `provider`, `id`, `params`
 (the originating `NamedTuple`), `mintime` (ns), `allocs`, `memory` (bytes), `gflops`
-(`flops(spec) / mintime`, or `missing` if `mintime` is zero), and `gbps` (`bytes(spec) /
-mintime`). `categories`/`sizes` must match what was passed to the `build_suite` call that
-produced `results`, since specs (and therefore flop/byte counts) are regenerated from
-`REGISTRY` rather than stored in the result itself.
+(`flops(spec) / mintime`, or `missing` if `mintime` is zero), `gbps` (`bytes(spec) / mintime`),
+and `intensity` (`flops(spec) / bytes(spec)`, flops/byte -- a static property of the case, not
+the measurement, useful for a roofline-style plot against `gflops`). `categories`/`sizes` must
+match what was passed to the `build_suite` call that produced `results`, since specs (and
+therefore flop/byte counts) are regenerated from `REGISTRY` rather than stored in the result
+itself.
 """
 function resultstable(
         results::BenchmarkGroup; categories = collect(keys(REGISTRY)), sizes = nothing
@@ -36,7 +38,7 @@ function resultstable(
                     (;
                         category = String(category), provider = providerlabel, id,
                         params = case.params, mintime, allocs = trial.allocs,
-                        memory = trial.memory, gflops, gbps,
+                        memory = trial.memory, gflops, gbps, intensity = intensity(case.spec),
                     )
                 )
             end
