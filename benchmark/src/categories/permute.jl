@@ -24,4 +24,4 @@ function _permute_cases(sizes)
     return cases
 end
 
-register_category!(:permute, _permute_cases; sizes = (8, 15, 32, 63, 96, 128, 200, 256))
+register_category!(:permute, _permute_cases; sizes = (4, 6, 8, 15, 32, 63, 96, 128, 200, 256))

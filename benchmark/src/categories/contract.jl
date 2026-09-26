@@ -101,5 +101,5 @@ _contract_cases(sizes) = vcat(
 
 register_category!(
     :contract, _contract_cases;
-    sizes = (8, 12, 15, 16, 24, 32, 63, 96, 128, 200, 256)
+    sizes = (4, 6, 8, 12, 15, 16, 24, 32, 63, 96, 128, 200, 256)
 )
