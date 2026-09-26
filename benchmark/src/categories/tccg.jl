@@ -14,7 +14,10 @@ const TCCG_CONTRACTIONS = (
     (id = "ccsd_7", C = "ijkl", A = "imjn", B = "lnkm"),
     (id = "ccsd_8", C = "ijkl", A = "imjn", B = "nlmk"),
     (id = "ccsd_9", C = "ijkl", A = "minl", B = "njmk"),
-    # CCSD(T)
+    # CCSD(T) -- ccsd_t_1..4 are 4 separately-named equations from the theory that happen to
+    # share one abstract contraction shape (structurally identical up to relabeling); kept as 4
+    # since they're each independently citable, not because they exercise different performance
+    # regimes.
     (id = "ccsd_t_1", C = "abcijk", A = "ijma", B = "mkbc"),
     (id = "ccsd_t_2", C = "abcijk", A = "ijmb", B = "mkac"),
     (id = "ccsd_t_3", C = "abcijk", A = "ijmc", B = "mkab"),

@@ -18,7 +18,9 @@
 # skipped by the dedup below.
 
 const CONTRACT_SHAPES = (
-    (1, 1, 1),   # matrix-vector-like
+    # No (1,1,1): with 1 open leg each side and 1 contracted leg, every layout candidate below
+    # collapses to `gemm_ready` (nowhere else to put a single element), which is then exactly
+    # TCCG's ccsd_1 (C[i,j]=A[i,k]*B[k,j]) -- pure duplication, so this shape is dropped.
     (2, 1, 2),   # single shared bond, several open legs each side
     (2, 2, 2),   # GEMM-like, rank 4 total
     (1, 3, 1),   # trace-heavy: many contracted, few open
