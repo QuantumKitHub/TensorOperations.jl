@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.0...HEAD)
+## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.2...HEAD)
 
 ### Added
 
@@ -18,6 +18,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Performance
+
+## [5.8.2](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.1...v5.8.2) - 2026-09-30
+
+### Changed
+
+- Compat with VectorInterface is extended to include 0.7 ([#306](https://github.com/QuantumKitHub/TensorOperations.jl/pull/306)).
+
+### Fixed
+
+- `dβ` in the Enzyme rule for `tensoradd!` when an `Active` `β` is zero: `C` was cached based on the value of `β` instead of its activity ([#307](https://github.com/QuantumKitHub/TensorOperations.jl/pull/307)).
+- The Enzyme rules no longer write into a shadow that aliases the primal (`dval === val`) under runtime activity, and skip the unneeded copy of `C` ([#305](https://github.com/QuantumKitHub/TensorOperations.jl/pull/305)).
+
+### Performance
+
+- The ChainRules rules no longer copy or retain `C` when `β = Zero()` ([#308](https://github.com/QuantumKitHub/TensorOperations.jl/pull/308)).
+
+## [5.8.1](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.0...v5.8.1) - 2026-09-15
+
+### Added
+
+- `tensorfree!` for GPU arrays with `DefaultAllocator` ([#300](https://github.com/QuantumKitHub/TensorOperations.jl/pull/300)).
 
 ## [5.8.0](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.7.0...v5.8.0) - 2026-08-13
 
