@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: TensorOperations.jl
+abstract: Fast tensor operations using a convenient Einstein index notation.
+type: software
+authors:
+  - family-names: Devos
+    given-names: Lukas
+    orcid: "https://orcid.org/0000-0002-0256-4200"
+  - family-names: Van Damme
+    given-names: Maarten
+    orcid: "https://orcid.org/0000-0002-1558-0568"
+  - family-names: Haegeman
+    given-names: Jutho
+    orcid: "https://orcid.org/0000-0002-0858-291X"
+version: 5.8.2
+date-released: "2026-09-30"
+doi: 10.5281/zenodo.3245496
+license: MIT
+repository-code: "https://github.com/QuantumKitHub/TensorOperations.jl"
+url: "https://quantumkithub.github.io/TensorOperations.jl/stable/"
+keywords:
+  - julia
+  - tensors
+  - einstein-notation
+  - tensor-contraction
