@@ -260,3 +260,28 @@ end
     test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (randn(), Active), (0.0, Active))
     test_reverse(tensoradd!, Duplicated, (C, Duplicated), (A, Duplicated), (pA, Const), (false, Const), (randn(), Active), (randn(), Const))
 end
+
+# under runtime activity, inactive operands can arrive as `Duplicated` with `dval === val`,
+# see https://github.com/EnzymeAD/Enzyme.jl/issues/3623
+const RUNTIME_ACTIVITY_OPS = Dict([1, 2] => randn(4, 4), [2, 3] => randn(4, 4))
+function runtime_activity_f(x)
+    total = 0.0
+    for (_, op) in collect(RUNTIME_ACTIVITY_OPS)
+        C = zeros(length(x))
+        @tensor C[i] += op[i, j] * x[j]
+        D = x * x'
+        @tensor D[j, i] += op[i, j]
+        T = fill(x[1])
+        @tensor T[] += op[i, i]
+        total += sum(C) + sum(D) + T[]
+    end
+    return total
+end
+@testset "runtime activity with inactive operands" begin
+    ops = deepcopy(RUNTIME_ACTIVITY_OPS)
+    x = randn(4)
+    dx = zero(x)
+    Enzyme.autodiff(set_runtime_activity(Reverse), Const(runtime_activity_f), Active, Duplicated(x, dx))
+    @test all(RUNTIME_ACTIVITY_OPS[k] == ops[k] for k in keys(ops))
+    @test dx ≈ sum(vec(sum(op; dims = 1)) .+ 2 * sum(x) .+ [1, 0, 0, 0] for op in values(ops))
+end
