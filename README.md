@@ -98,4 +98,4 @@ For more detailed information, please see the documentation.
 
 ## Citing
 
-See [`CITATION.bib`](CITATION.bib) for the relevant reference(s).
+See [`CITATION.cff`](CITATION.cff) for the relevant reference(s), or use the "Cite this repository" button on GitHub to export it as BibTeX or APA.
