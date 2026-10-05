@@ -335,66 +335,72 @@ end
     end
 
     @testset "tensor network ($T)" for T in (Float32, Float64, ComplexF32, ComplexF64)
-        D1, D2, D3 = 30, 40, 20
-        d1, d2 = 2, 3
+        # GPUArrays 11.5.16 reports disjoint JLArray buffer slices as aliases.
+        # Re-enable once both upstream alias checks are fixed and released:
+        # https://github.com/JuliaGPU/GPUArrays.jl/pull/803
+        # https://github.com/QuantumKitHub/StridedViews.jl/pull/57
+        @test_skip begin
+            D1, D2, D3 = 30, 40, 20
+            d1, d2 = 2, 3
 
-        A1 = JLArray(randn(T, D1, d1, D2))
-        A2 = JLArray(randn(T, D2, d2, D3))
-        ρₗ = JLArray(randn(T, D1, D1))
-        ρᵣ = JLArray(randn(T, D3, D3))
-        H = JLArray(randn(T, d1, d2, d1, d2))
+            A1 = JLArray(randn(T, D1, d1, D2))
+            A2 = JLArray(randn(T, D2, d2, D3))
+            ρₗ = JLArray(randn(T, D1, D1))
+            ρᵣ = JLArray(randn(T, D3, D3))
+            H = JLArray(randn(T, d1, d2, d1, d2))
 
-        @tensor begin
-            HRAA1[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
-                ρᵣ[c', c] * H[s1, s2, t1, t2]
-        end
-
-        buffer = JLBufferAllocator()
-        @tensor allocator = buffer begin
-            HRAA2[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
-                ρᵣ[c', c] * H[s1, s2, t1, t2]
-        end
-        @test HRAA2 isa JLArray{T, 4}
-        @test collect(HRAA2) ≈ collect(HRAA1)
-
-        # all temporaries were reclaimed, and the buffer was actually used
-        @test buffer.offset == 0
-        @test buffer.max_offset > 0
-
-        # the first contraction already recorded the full requirement, so it no longer grows
-        max0 = buffer.max_offset
-        for _ in 1:5
-            @tensor allocator = buffer begin
-                HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+            @tensor begin
+                HRAA1[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
                     ρᵣ[c', c] * H[s1, s2, t1, t2]
             end
-            @test collect(HRAA3) ≈ collect(HRAA1)
-        end
-        max1 = buffer.max_offset
-        @test max1 == max0
-        @test length(buffer) ≥ max1
 
-        for _ in 1:5
+            buffer = JLBufferAllocator()
             @tensor allocator = buffer begin
-                HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                HRAA2[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
                     ρᵣ[c', c] * H[s1, s2, t1, t2]
             end
-            @test collect(HRAA3) ≈ collect(HRAA1)
-        end
-        @test buffer.offset == 0
-        @test buffer.max_offset == max1
+            @test HRAA2 isa JLArray{T, 4}
+            @test collect(HRAA2) ≈ collect(HRAA1)
 
-        # scalar output
-        @tensor begin
-            E1 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
-                H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+            # all temporaries were reclaimed, and the buffer was actually used
+            @test buffer.offset == 0
+            @test buffer.max_offset > 0
+
+            # the first contraction already recorded the full requirement, so it no longer grows
+            max0 = buffer.max_offset
+            for _ in 1:5
+                @tensor allocator = buffer begin
+                    HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                @test collect(HRAA3) ≈ collect(HRAA1)
+            end
+            max1 = buffer.max_offset
+            @test max1 == max0
+            @test length(buffer) ≥ max1
+
+            for _ in 1:5
+                @tensor allocator = buffer begin
+                    HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                @test collect(HRAA3) ≈ collect(HRAA1)
+            end
+            @test buffer.offset == 0
+            @test buffer.max_offset == max1
+
+            # scalar output
+            @tensor begin
+                E1 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                    H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+            end
+            @tensor allocator = buffer begin
+                E2 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
+                    H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
+            end
+            @test E1 ≈ E2
+            @test buffer.offset == 0
         end
-        @tensor allocator = buffer begin
-            E2 = ρₗ[a', a] * A1[a, s, b] * A2[b, s', c] * ρᵣ[c, c'] *
-                H[t, t', s, s'] * conj(A1[a', t, b']) * conj(A2[b', t', c'])
-        end
-        @test E1 ≈ E2
-        @test buffer.offset == 0
     end
 
     @testset "ncon" begin
