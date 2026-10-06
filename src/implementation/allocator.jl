@@ -438,11 +438,12 @@ function tensoralloc(
                 resize!(buffer, buffer.max_offset)
             end
 
+            # also advance on overflow, such that `max_offset` records the full requirement
+            # of this pass rather than only the part that the next pass will discover
+            buffer.offset = offset
+
             # Use pointer if there is enough space
-            if offset <= length(buffer)
-                buffer.offset = offset
-                return unsafe_buffer_wrap(AA, buffer, start, structure)
-            end
+            offset <= length(buffer) && return unsafe_buffer_wrap(AA, buffer, start, structure)
         end
 
         # Allocate in the same memory space as the buffer if it does not fit
