@@ -183,6 +183,20 @@ end
         @test buffer.offset == 0
         @test buffer.max_offset > 0
 
+        if AT === JLArray
+            # Disjoint JLArray slices are reported as aliases once the buffer is warm.
+            # https://github.com/JuliaGPU/GPUArrays.jl/pull/803
+            # https://github.com/QuantumKitHub/StridedViews.jl/pull/57
+            @test_broken begin
+                @tensor allocator = buffer begin
+                    HRAA3[a, s1, s2, c] := ρₗ[a, a'] * A1[a', t1, b] * A2[b, t2, c'] *
+                        ρᵣ[c', c] * H[s1, s2, t1, t2]
+                end
+                test_result(HRAA3, HRAA1)
+            end
+            continue # Later checks require the warm-buffer contraction to succeed.
+        end
+
         # the high-water mark only counts temporaries that actually fit, so it may still grow
         # while the buffer is warming up, but has to converge to a fixed size afterwards
         for _ in 1:3
