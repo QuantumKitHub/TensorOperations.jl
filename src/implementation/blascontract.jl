@@ -97,7 +97,7 @@ function _unsafe_blas_contract!(
     return C
 end
 
-function makeblascontractable(A, pA, TC, backend, allocator)
+function makeblascontractable(A, pA, ::Type{TC}, backend, allocator) where {TC}
     flagA = isblascontractable(A, pA) && eltype(A) == TC
     if !flagA
         A_ = tensoralloc_add(TC, A, pA, false, Val(true), allocator)
