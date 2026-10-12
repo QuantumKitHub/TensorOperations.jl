@@ -141,10 +141,25 @@ function nconindexcompletion(ex)
     end
 end
 
+# Resolve the traces in the network, and canonicalize the types of the tensor list and the
+# network, such that the remainder of `ncon` is type stable and only compiled once.
 function resolve_traces(tensors, network)
-    transformed = map(zip(tensors, network)) do (A, IA)
-        IC = unique2(IA)
-        return length(IC) == length(IA) ? (A, IA) : (tensortrace(IC, A, IA), IC)
+    network′ = _ncon_network(network)
+    all(k -> length(network[k]) == length(network′[k]), eachindex(network)) &&
+        return _anyvector(tensors), network′
+    tensors′ = map(tensors, network, network′) do A, IA, IC
+        return length(IA) == length(IC) ? A : tensortrace(IC, A, _ncon_labelvector(IA))
     end
-    return first.(transformed), last.(transformed)
+    return _anyvector(tensors′), network′
 end
+
+# labels after resolving the traces
+_ncon_network(network) =
+    Vector{Int}[_ncon_labelvector(allunique(IA) ? IA : unique2(IA)) for IA in network]
+
+# canonicalize any list of labels, e.g. a `Tuple` or a row matrix like `[1 2 -1]`
+_ncon_labelvector(IA) = vec(collect(Int, IA))
+
+# note: avoiding `collect(Any, xs)` and mutation for compatibility with Zygote
+_anyvector(xs::AbstractVector) = Vector{Any}(xs)
+_anyvector(xs::Tuple) = Any[xs...]

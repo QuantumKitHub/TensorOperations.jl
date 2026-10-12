@@ -17,8 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `ncon` can be differentiated with Zygote, including networks with traces.
+- `ncon` accepts traces in networks whose index lists are given as row matrices, e.g. `[1 1 -1]`.
+
 ### Performance
 
+- `ncon` has significantly less overhead: the network analysis and contraction tree construction are type stable, and every pairwise contraction goes through a single dynamic dispatch.
 - Contractions of `Array`s that require a permuted copy of an input no longer suffer from a type instability.
 - `ncon` partitions its intermediates as `(open indices of A; open indices of B)` instead of placing all indices in the codomain, which avoids repartitioning copies for tensor types such as `TensorMap`s with symmetries ([#311](https://github.com/QuantumKitHub/TensorOperations.jl/issues/311)).
 
