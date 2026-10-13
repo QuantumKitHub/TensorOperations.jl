@@ -23,6 +23,7 @@ using LinearAlgebra
 @non_differentiable TensorOperations.tensoralloc_contract(args...)
 @non_differentiable TensorOperations.promote_contract(args...)
 @non_differentiable TensorOperations.promote_add(args...)
+@non_differentiable TensorOperations.contract_indices(args...)
 
 # Cannot free intermediate tensors when using AD
 # Thus we change the forward passes: `istemp=false` and `tensorfree!` is a no-op
