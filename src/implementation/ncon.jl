@@ -103,25 +103,29 @@ function _ncon_contract(
         A, IA::Vector{Int}, conjA::Bool, B, IB::Vector{Int}, conjB::Bool, IC::Vector{Int},
         istemp::Val, backend, allocator
     )
-    # function barrier: the number of indices of `A`, `B` and `C` is only known at runtime
-    IA′, IB′, IC′ = _ncon_tuple(IA), _ncon_tuple(IB), _ncon_tuple(IC)
-    return _ncon_contract!(A, IA′, conjA, B, IB′, conjB, IC′, istemp, backend, allocator)
-end
-function _ncon_contract!(A, IA, conjA, B, IB, conjB, IC, istemp::Val, backend, allocator)
+    # only `_ncon_contract!` should be specialized on the types of the tensors
+    @nospecialize A B
     pA, pB, pAB = contract_indices(IA, IB, IC)
-    if istemp === Val(true)
-        # intermediates list the open indices of `A` before those of `B`, so partition them as
-        # `(open A; open B)`, which avoids repartitioning copies for e.g. symmetric tensors
-        pAB = trivialpermutation(numout(pA), numin(pB))
-    end
+    # function barrier: the number of indices of `A`, `B` and `C` is only known at runtime
+    # note: the tuples are passed separately rather than as `Index2Tuple`s to avoid boxing
+    return _ncon_contract!(
+        A, pA[1], pA[2], conjA, B, pB[1], pB[2], conjB, pAB[1], istemp, backend, allocator
+    )
+end
+function _ncon_contract!(
+        A, oindA, cindA, conjA, B, cindB, oindB, conjB, indCinoAB, istemp::Val,
+        backend, allocator
+    )
+    pA = (oindA, cindA)
+    pB = (cindB, oindB)
+    # intermediates list the open indices of `A` before those of `B`, so partition them as
+    # `(open A; open B)`, which avoids repartitioning copies for e.g. symmetric tensors
+    pAB = istemp === Val(true) ? trivialpermutation(length(oindA), length(oindB)) :
+        (indCinoAB, ())
     TC = promote_contract(scalartype(A), scalartype(B))
     C = tensoralloc_contract(TC, A, pA, conjA, B, pB, conjB, pAB, istemp, allocator)
     return tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, One(), Zero(), backend, allocator)
 end
-
-# convert a list of labels to a tuple
-# note: `ntuple` is much faster than `Tuple(I)` or `(I...,)` for short lists
-_ncon_tuple(I::Vector{Int}) = ntuple(k -> I[k], length(I))
 
 function nconoutput(network, output)
     outputindices = Vector{Int}()

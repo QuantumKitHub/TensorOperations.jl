@@ -81,16 +81,13 @@ function trace_indices(IA::NTuple{NA, Any}, IC::NTuple{NC, Any}) where {NA, NC}
     return (indCinA, ()), (cindA1, cindA2)
 end
 
-function contract_indices(IA, IB, IC)
-    return contract_indices(tuple(IA...), tuple(IB...), tuple(IC...))
-end
+contract_indices(IA, IB, IC) = contract_indices(tuple(IA...), tuple(IB...), tuple(IC...))
 function contract_indices(
         IA::NTuple{NA, Any}, IB::NTuple{NB, Any}, IC::NTuple{NC, Any}
     ) where {NA, NB, NC}
     # labels
     IAB = (IA..., IB...)
-    isodd(length(IAB) - length(IC)) &&
-        throw(IndexError("invalid contraction pattern: $IA and $IB to $IC"))
+    isodd(length(IAB) - length(IC)) && _throw_invalid_contraction(IA, IB, IC)
     Icontract = tunique(tsetdiff(IAB, IC))
     IopenA = tsetdiff(IA, Icontract)
     IopenB = tsetdiff(IB, Icontract)
@@ -107,11 +104,57 @@ function contract_indices(
     pAB = (indCinoAB, ())
 
     if !isperm(linearize(pA)) || !isperm(linearize(pB)) || !isperm(indCinoAB)
-        throw(IndexError("invalid contraction pattern: $IA and $IB to $IC"))
+        _throw_invalid_contraction(IA, IB, IC)
     end
 
     return pA, pB, pAB
 end
+
+# Implementation for labels stored in vectors, where the number of labels is only known at
+# runtime. The permutations are computed as vectors in a type stable manner, and only then
+# converted to tuples. This avoids the type instabilities of the tuple implementation, as well
+# as compiling it for every combination of lengths.
+# note: inlined such that callers with a function barrier, such as `ncon`, can pass the
+# resulting tuples on without boxing them
+@inline function contract_indices(IA::AbstractVector, IB::AbstractVector, IC::AbstractVector)
+    # split the indices of `A` into open and contracted ones
+    oindA, cindA, cindB = Int[], Int[], Int[]
+    for (i, l) in enumerate(IA)
+        j = _findfirst(isequal(l), IB)
+        if j == 0
+            push!(oindA, i)
+        else
+            push!(cindA, i)
+            push!(cindB, j)
+        end
+    end
+    oindB = findall(l -> !(l in IA), IB)
+    # position of the indices of `C` in the open indices of `A` and `B`
+    indCinoAB = map(IC) do l
+        i = findfirst(i -> isequal(IA[i], l), oindA)
+        isnothing(i) || return i
+        j = findfirst(j -> isequal(IB[j], l), oindB)
+        return isnothing(j) ? 0 : length(oindA) + j
+    end
+    # every index of `B` and `C` should be accounted for exactly once
+    (
+        length(cindB) + length(oindB) == length(IB) && allunique(cindB) &&
+            length(oindA) + length(oindB) == length(IC) && allunique(indCinoAB) &&
+            !(0 in indCinoAB)
+    ) || throw(IndexError("invalid contraction pattern: $IA and $IB to $IC"))
+
+    pA = (_totuple(oindA), _totuple(cindA))
+    pB = (_totuple(cindB), _totuple(oindB))
+    pAB = (_totuple(indCinoAB), ())
+    return pA, pB, pAB
+end
+
+# note: `ntuple` is much faster than `Tuple` or splatting for short lists, and the separate
+# function avoids inferring the resulting union of tuple types in the caller
+@noinline _totuple(p::Vector{Int}) = ntuple(k -> p[k], length(p))
+
+@noinline _throw_invalid_contraction(IA, IB, IC) =
+    throw(IndexError("invalid contraction pattern: $IA and $IB to $IC"))
 
 #-------------------------------------------------------------------------------------------
 # Convert indices to einsum labels: useful for package extensions / add-ons (e.g. TBLIS)

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ncon` has significantly less overhead: the network analysis and contraction tree construction are type stable, and every pairwise contraction goes through a single dynamic dispatch.
 - Contractions of `Array`s that require a permuted copy of an input no longer suffer from a type instability.
+- Index labels given as vectors, as in `ncon` or the method syntax `tensorcontract(IC, A, IA, B, IB)`, are converted to index permutations in a type-stable manner, which avoids compiling the conversion for every combination of numbers of indices.
 - `ncon` partitions its intermediates as `(open indices of A; open indices of B)` instead of placing all indices in the codomain, which avoids repartitioning copies for tensor types such as `TensorMap`s with symmetries ([#311](https://github.com/QuantumKitHub/TensorOperations.jl/issues/311)).
 
 ## [5.8.2](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.1...v5.8.2) - 2026-09-30
