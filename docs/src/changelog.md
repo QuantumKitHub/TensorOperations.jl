@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ncon` can be differentiated with Zygote, including networks with traces.
 - `ncon` accepts traces in networks whose index lists are given as row matrices, e.g. `[1 1 -1]`.
+- Contractions using the `StridedBLAS` backend no longer heap allocate a view of an input tensor when an allocator such as Bumper's is used ([#273](https://github.com/QuantumKitHub/TensorOperations.jl/issues/273)).
 
 ### Performance
 
