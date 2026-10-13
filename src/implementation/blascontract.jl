@@ -43,23 +43,37 @@ end
 
 # implement necessary permutations
 function _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
+    # note: the inputs are made BLAS-contractable one at a time, passing them on to the next
+    # step rather than returning them, since their types depend on whether a copy was made,
+    # and returning such a union would require heap allocating the result
+    isblascontractable(A, pA) && eltype(A) == eltype(C) &&
+        return _blas_contract_B!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
+    A_ = _blascontractable_copy(A, pA, eltype(C), backend, allocator)
+    _blas_contract_B!(C, SV(A_), trivialpermutation(pA), B, pB, pAB, α, β, backend, allocator)
+    tensorfree!(A_, allocator)
+    return C
+end
+function _blas_contract_B!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
+    isblascontractable(B, pB) && eltype(B) == eltype(C) &&
+        return _blas_contract_C!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
+    B_ = _blascontractable_copy(B, pB, eltype(C), backend, allocator)
+    _blas_contract_C!(C, A, pA, SV(B_), trivialpermutation(pB), pAB, α, β, backend, allocator)
+    tensorfree!(B_, allocator)
+    return C
+end
+function _blas_contract_C!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
     TC = eltype(C)
-
-    A_, pA, flagA = makeblascontractable(A, pA, TC, backend, allocator)
-    B_, pB, flagB = makeblascontractable(B, pB, TC, backend, allocator)
-
     # the partition of `ipAB` is required by `isblasdestination` and `tensoralloc_add`, but
     # the actual contraction only needs the linearized permutation
     ipAB = oindABinC(pAB, pA, pB)
     ipAB′ = linearize(ipAB)
     flagC = isblasdestination(C, ipAB)
     if flagC
-        C_ = C
-        _unsafe_blas_contract!(C_, A_, pA, B_, pB, ipAB′, α, β)
+        _unsafe_blas_contract!(C, A, pA, B, pB, ipAB′, α, β)
     else
         C_ = SV(tensoralloc_add(TC, C, ipAB, false, Val(true), allocator))
         _unsafe_blas_contract!(
-            C_, A_, pA, B_, pB, trivialpermutation(ipAB′),
+            C_, A, pA, B, pB, trivialpermutation(ipAB′),
             one(TC), zero(TC)
         )
         # `C` already exists, so only the permutation of `pAB` matters here and it can be
@@ -67,9 +81,17 @@ function _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
         tensoradd!(C, C_, (pAB, ()), false, α, β, backend, allocator)
         tensorfree!(C_.parent, allocator)
     end
-    flagA || tensorfree!(A_.parent, allocator)
-    flagB || tensorfree!(B_.parent, allocator)
     return C
+end
+
+# Make a permuted copy of `A` with scalar type `TC`, that can be used directly in a BLAS
+# contraction with the trivial partition. The copy should be freed afterwards.
+# note: inlined such that the wrapper of the copy does not need to be allocated if it does not
+# escape the caller, such as for an `Array` that only serves as the parent of a `StridedView`
+@inline function _blascontractable_copy(A, pA, ::Type{TC}, backend, allocator) where {TC}
+    A_ = tensoralloc_add(TC, A, pA, false, Val(true), allocator)
+    tensoradd!(SV(A_), A, pA, false, One(), Zero(), backend, allocator)
+    return A_
 end
 
 # perform the actual contraction, assuming it can be done as matrix multiplication by simply
