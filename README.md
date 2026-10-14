@@ -1,7 +1,4 @@
-<picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/QuantumKitHub/TensorOperations.jl/blob/master/docs/src/assets/logo-dark.svg">
-    <img alt="TensorOperations.jl logo" src="https://github.com/QuantumKitHub/TensorOperations.jl/blob/master/docs/src/assets/logo.svg" width="150">
-</picture>
+<img alt="TensorOperations.jl logo" src="./docs/src/assets/logo_readme.svg" width="150">
 
 # TensorOperations.jl
 
