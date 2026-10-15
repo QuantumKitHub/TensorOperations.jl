@@ -23,6 +23,7 @@ using LinearAlgebra
 @non_differentiable TensorOperations.tensoralloc_contract(args...)
 @non_differentiable TensorOperations.promote_contract(args...)
 @non_differentiable TensorOperations.promote_add(args...)
+@non_differentiable TensorOperations.contract_indices(args...)
 
 # Cannot free intermediate tensors when using AD
 # Thus we change the forward passes: `istemp=false` and `tensorfree!` is a no-op
@@ -193,5 +194,12 @@ end
 @non_differentiable TensorOperations.nconoutput(args...)
 @non_differentiable TensorOperations.check_nconstyle(args...)
 @non_differentiable TensorOperations.indexordertree(args...)
+@non_differentiable TensorOperations._ncontree_steps(args...)
+@non_differentiable TensorOperations._indexordertree_steps(args...)
+# label manipulations that mutate arrays, which is not supported by e.g. Zygote
+@non_differentiable TensorOperations._ncon_network(args...)
+@non_differentiable TensorOperations._ncon_labelvector(args...)
+@non_differentiable TensorOperations._ncon_conjlist(args...)
+@non_differentiable TensorOperations._ncon_symdiff(args...)
 
 end

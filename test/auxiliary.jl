@@ -336,5 +336,39 @@ end
             )
             @test contract_indices(contract_labels(pA, pB, pAB)...) == (pA, pB, pAB)
         end
+
+        # labels stored in vectors
+        @test contract_indices([:a, :b, :c], [:c, :d], [:a, :b, :d]) ==
+            (((1, 2), (3,)), ((1,), (2,)), ((1, 2, 3), ()))
+        @test contract_indices([:c, :a, :b], [:c, :d], [:a, :b, :d]) ==
+            (((2, 3), (1,)), ((1,), (2,)), ((1, 2, 3), ()))
+        @test contract_indices([1, 2], [3, 4], [3, 1, 4, 2]) ==
+            (((1, 2), ()), ((), (1, 2)), ((3, 1, 4, 2), ()))
+        @test contract_indices([1, 2], [2, 1], Int[]) ==
+            (((), (1, 2)), ((2, 1), ()), ((), ()))
+        @test_throws IndexError contract_indices([:a, :b, :c], [:c, :d], [:a, :b, :d, :e])
+        @test_throws IndexError contract_indices([:a, :b, :c], [:c, :d], [:a, :b, :e])
+        @test_throws IndexError contract_indices([:a, :b, :c], [:c, :d, :e], [:a, :b, :d])
+        @test_throws IndexError contract_indices([:a, :b, :c], [:c, :c], [:a, :b])
+
+        # agrees with the tuple implementation, including for invalid patterns
+        result(f) = try
+            f()
+        catch e
+            e isa IndexError || rethrow()
+            IndexError
+        end
+        for _ in 1:1000
+            c = collect(1:rand(0:3))
+            IA = shuffle([c; 100 .+ (1:rand(0:3))])
+            IB = shuffle([c; 200 .+ (1:rand(0:3))])
+            IC = shuffle(filter(>(99), [IA; IB]))
+            r = rand(1:4)
+            r == 1 && !isempty(IC) && (IC[1] = 999)
+            r == 2 && !isempty(IA) && (IA[1] = 777)
+            r == 3 && length(IB) > 1 && (IB[2] = IB[1])
+            @test result(() -> contract_indices(IA, IB, IC)) ==
+                result(() -> contract_indices(Tuple(IA), Tuple(IB), Tuple(IC)))
+        end
     end
 end
