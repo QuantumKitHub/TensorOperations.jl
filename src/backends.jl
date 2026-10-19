@@ -96,7 +96,12 @@ struct TBLISBackend <: AbstractBackend end
 # CuTENSOR backend
 #-----------------
 """
-    cuTENSORBackend()
-Backend for tensor operations that is based on the NVIDIA cuTENSOR library.
+    cuTENSORBackend(; workspace = nothing)
+Backend for tensor operations that is based on the NVIDIA cuTENSOR library. `workspace` is
+cuTENSOR's workspace preference for contractions, e.g. `cuTENSOR.WORKSPACE_MAX`; `nothing`
+selects `cuTENSOR.WORKSPACE_DEFAULT`.
 """
-struct cuTENSORBackend <: AbstractBackend end
+struct cuTENSORBackend{W} <: AbstractBackend
+    workspace::W
+end
+cuTENSORBackend(; workspace = nothing) = cuTENSORBackend(workspace)

@@ -77,6 +77,20 @@ if cuTENSOR.functional()
             @tensor F2[a, b, c, d, e, f] := CuArray(D)[a, b, c] * conj(CuArray(E)[d, e, f])
             @test collect(F2) ≈ F1
         end
+
+        @testset "tensorcontract workspace = $workspace" for workspace in
+            (nothing, cuTENSOR.WORKSPACE_MIN, cuTENSOR.WORKSPACE_DEFAULT, cuTENSOR.WORKSPACE_MAX)
+            backend = cuTENSORBackend(; workspace)
+            @test backend.workspace === workspace
+            A = randn(Float32, (3, 20, 5, 3, 4))
+            B = randn(Float32, (5, 6, 20, 3))
+            @tensor C1[a, g, e, d, f] := A[a, b, c, d, e] * B[c, f, b, g]
+            @tensor backend = backend allocator = CUDAAllocator() begin
+                C2[a, g, e, d, f] := A[a, b, c, d, e] * B[c, f, b, g]
+            end
+            @test C2 isa CuArray
+            @test collect(C2) ≈ C1
+        end
     end
 
     @testset "more complicated expressions" verbose = true begin

@@ -204,7 +204,8 @@ function TO.tensorcontract!(
         B, Binds, opB,
         β,
         C, Cinds, OP_IDENTITY,
-        OP_IDENTITY
+        OP_IDENTITY;
+        workspace = something(backend.workspace, WORKSPACE_DEFAULT)
     )
 end
 
