@@ -101,7 +101,6 @@ Backend for tensor operations that is based on the NVIDIA cuTENSOR library. `wor
 cuTENSOR's workspace preference for contractions, e.g. `cuTENSOR.WORKSPACE_MAX`; `nothing`
 selects `cuTENSOR.WORKSPACE_DEFAULT`.
 """
-struct cuTENSORBackend{W} <: AbstractBackend
-    workspace::W
+@kwdef struct cuTENSORBackend <: AbstractBackend
+    workspace = nothing
 end
-cuTENSORBackend(; workspace = nothing) = cuTENSORBackend(workspace)
