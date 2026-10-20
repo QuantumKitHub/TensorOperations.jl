@@ -78,8 +78,7 @@ if cuTENSOR.functional()
             @test collect(F2) ≈ F1
         end
 
-        @testset "tensorcontract workspace = $workspace" for workspace in
-            (nothing, cuTENSOR.WORKSPACE_MIN, cuTENSOR.WORKSPACE_DEFAULT, cuTENSOR.WORKSPACE_MAX)
+        @testset "tensorcontract workspace = $workspace" for workspace in (:min, :default, :max)
             backend = cuTENSORBackend(; workspace)
             @test backend.workspace === workspace
             A = randn(Float32, (3, 20, 5, 3, 4))
@@ -90,6 +89,16 @@ if cuTENSOR.functional()
             end
             @test C2 isa CuArray
             @test collect(C2) ≈ C1
+        end
+
+        @testset "tensorcontract unknown workspace" begin
+            A = CuArray(randn(Float32, (3, 4)))
+            B = CuArray(randn(Float32, (4, 5)))
+            @test_throws ArgumentError begin
+                @tensor backend = cuTENSORBackend(; workspace = :maximum) begin
+                    C[a, c] := A[a, b] * B[b, c]
+                end
+            end
         end
     end
 
