@@ -97,6 +97,16 @@ struct TBLISBackend <: AbstractBackend end
 #-----------------
 """
     cuTENSORBackend()
+
 Backend for tensor operations that is based on the NVIDIA cuTENSOR library.
 """
 struct cuTENSORBackend <: AbstractBackend end
+
+# hipTENSOR backend
+#-----------------
+"""
+    hipTENSORBackend()
+
+Backend for tensor operations that is based on the AMD hipTENSOR library.
+"""
+struct hipTENSORBackend <: AbstractBackend end
