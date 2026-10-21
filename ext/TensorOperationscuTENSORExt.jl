@@ -205,19 +205,19 @@ function TO.tensorcontract!(
         β,
         C, Cinds, OP_IDENTITY,
         OP_IDENTITY;
-        workspace = select_cutensor_workspace(backend.workspace)
+        workspace = select_cutensor_workspace(backend)
     )
 end
 
-function select_cutensor_workspace(workspace)
+function select_cutensor_workspace(backend::cuTENSORBackend)
+    workspace = backend.workspace
     if workspace === :min
         return WORKSPACE_MIN
     elseif workspace === :max
         return WORKSPACE_MAX
-    elseif workspace === :default
-        return WORKSPACE_DEFAULT
     else
-        throw(ArgumentError("unknown cuTENSOR workspace option $(repr(workspace)); options are `:min`, `:max` or `:default`"))
+        # Symbol validated at `backend` construction, only remaining option is `:default`.
+        return WORKSPACE_DEFAULT
     end
 end
 

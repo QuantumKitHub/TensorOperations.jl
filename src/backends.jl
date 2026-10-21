@@ -102,4 +102,14 @@ cuTENSOR's workspace preference for contractions: `:min`, `:default` or `:max`.
 """
 @kwdef struct cuTENSORBackend <: AbstractBackend
     workspace::Symbol = :default
+    function cuTENSORBackend(workspace::Symbol)
+        if workspace ∉ (:min, :max, :default)
+            throw(
+                ArgumentError(
+                    "unknown cuTENSOR workspace option $(repr(workspace)); options are `:min`, `:max` or `:default`"
+                )
+            )
+        end
+        return new(workspace)
+    end
 end
