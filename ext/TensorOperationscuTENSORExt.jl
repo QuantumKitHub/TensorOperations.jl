@@ -12,7 +12,7 @@ using cuTENSOR: handle, stream
 using cuTENSOR: cutensorWorksizePreference_t, cutensorAlgo_t, cutensorOperationDescriptor_t,
     cutensorOperator_t, cutensorJitMode_t, cutensorPlanPreference_t,
     cutensorComputeDescriptorEnum
-using cuTENSOR: WORKSPACE_DEFAULT, ALGO_DEFAULT, JIT_MODE_NONE
+using cuTENSOR: WORKSPACE_DEFAULT, WORKSPACE_MAX, WORKSPACE_MIN, ALGO_DEFAULT, JIT_MODE_NONE
 using cuTENSOR: cutensorCreatePlanPreference, cutensorPlan, CuTensorPlan,
     CuTensorDescriptor, ModeType
 
@@ -204,8 +204,21 @@ function TO.tensorcontract!(
         B, Binds, opB,
         β,
         C, Cinds, OP_IDENTITY,
-        OP_IDENTITY
+        OP_IDENTITY;
+        workspace = select_cutensor_workspace(backend)
     )
+end
+
+function select_cutensor_workspace(backend::cuTENSORBackend)
+    workspace = backend.workspace
+    if workspace === :min
+        return WORKSPACE_MIN
+    elseif workspace === :max
+        return WORKSPACE_MAX
+    else
+        # Symbol validated at `backend` construction, only remaining option is `:default`.
+        return WORKSPACE_DEFAULT
+    end
 end
 
 function TO.tensortrace!(
