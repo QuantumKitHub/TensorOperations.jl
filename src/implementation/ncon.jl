@@ -39,43 +39,92 @@ function ncon(
         end
     end
 
-    tensors, network = resolve_traces(tensors, network)
-    tree = order === nothing ? ncontree(network) : indexordertree(network, order)
-
-    allocator = haskey(kwargs, :allocator) ? kwargs[:allocator] : DefaultAllocator()
-    cp = allocator_checkpoint!(allocator)
-
-    A, IA, conjA = contracttree(tensors, network, conjlist, tree[1]; kwargs...)
-    B, IB, conjB = contracttree(tensors, network, conjlist, tree[2]; kwargs...)
-    IC = tuple(output′...)
-    C = tensorcontract(IC, A, IA, conjA, B, IB, conjB; kwargs...)
-    tree[1] isa Int || tensorfree!(A, allocator)
-    tree[2] isa Int || tensorfree!(B, allocator)
-    allocator_reset!(allocator, cp)
-    return length(IC) == 0 ? tensorscalar(C) : C
+    tensors′, network′ = resolve_traces(tensors, network)
+    # extract the keyword arguments once, rather than for every pairwise contraction
+    backend, allocator = _ncon_kwargs(; kwargs...)
+    conjlist′ = _ncon_conjlist(conjlist)
+    return _ncon(tensors′, network′, conjlist′, output′, order, backend, allocator)
 end
 
-function contracttree(tensors, network, conjlist, tree; kwargs...)
-    @nospecialize
-    if tree isa Int
-        return tensors[tree], tuple(network[tree]...), (conjlist[tree])
-    end
-    A, IA, conjA = contracttree(tensors, network, conjlist, tree[1]; kwargs...)
-    B, IB, conjB = contracttree(tensors, network, conjlist, tree[2]; kwargs...)
-    IC = tuple(symdiff(IA, IB)...)
-    pA, pB, _ = contract_indices(IA, IB, IC)
-    # `IC` lists the open indices of `A` before those of `B`, as in the product
-    pAB = trivialpermutation(length(pA[1]), length(pB[2]))
-    TC = promote_contract(scalartype(A), scalartype(B))
-    allocator = haskey(kwargs, :allocator) ? kwargs[:allocator] : DefaultAllocator()
-    backend = haskey(kwargs, :backend) ? kwargs[:backend] : DefaultBackend()
-    C = tensoralloc_contract(TC, A, pA, conjA, B, pB, conjB, pAB, Val(true), allocator)
-    C = tensorcontract!(
-        C, A, pA, conjA, B, pB, conjB, pAB, One(), Zero(), backend, allocator
-    )
-    tree[1] isa Int || tensorfree!(A, allocator)
-    tree[2] isa Int || tensorfree!(B, allocator)
+function _ncon(tensors, network, conjlist, output, order, backend, allocator)
+    steps = order === nothing ? _ncontree_steps(network) :
+        _indexordertree_steps(network, order)
+    cp = allocator_checkpoint!(allocator)
+    n = length(tensors)
+    i, j = steps[end]
+    A, IA, conjA = contracttree(tensors, network, conjlist, steps, i, backend, allocator)
+    B, IB, conjB = contracttree(tensors, network, conjlist, steps, j, backend, allocator)
+    C = _ncon_contract(A, IA, conjA, B, IB, conjB, output, Val(false), backend, allocator)
+    i > n && tensorfree!(A, allocator)
+    j > n && tensorfree!(B, allocator)
+    allocator_reset!(allocator, cp)
+    return isempty(output) ? tensorscalar(C) : C
+end
+
+# Compute the (partial) result `k` of the contraction tree `steps` (see `_mergetrees!`).
+# The types and number of indices of the intermediate tensors are only known at runtime, but
+# the labels are kept as `Vector{Int}` such that all index computations are type stable, and
+# every pairwise contraction goes through a single dynamic dispatch, in `_ncon_contract`.
+function contracttree(tensors, network, conjlist, steps, k::Int, backend, allocator)
+    n = length(tensors)
+    k <= n && return tensors[k], network[k], conjlist[k]
+    i, j = steps[k - n]
+    A, IA, conjA = contracttree(tensors, network, conjlist, steps, i, backend, allocator)
+    B, IB, conjB = contracttree(tensors, network, conjlist, steps, j, backend, allocator)
+    IC = _ncon_symdiff(IA, IB)
+    C = _ncon_contract(A, IA, conjA, B, IB, conjB, IC, Val(true), backend, allocator)
+    i > n && tensorfree!(A, allocator)
+    j > n && tensorfree!(B, allocator)
     return C, IC, false
+end
+
+function _ncon_kwargs(; kwargs...)
+    args = _kwargs2args(; kwargs...)
+    return length(args) == 2 ? args :
+        length(args) == 1 ? (args[1], DefaultAllocator()) :
+        (DefaultBackend(), DefaultAllocator())
+end
+
+# labels of the result of contracting tensors with labels `IA` and `IB`, i.e. all labels that
+# appear in only one of them, in order of appearance
+# note: this is much faster than `Base.symdiff`, which constructs a `Set`
+function _ncon_symdiff(IA::Vector{Int}, IB::Vector{Int})
+    IC = Int[]
+    for i in IA
+        i in IB || push!(IC, i)
+    end
+    for i in IB
+        i in IA || push!(IC, i)
+    end
+    return IC
+end
+
+function _ncon_contract(
+        A, IA::Vector{Int}, conjA::Bool, B, IB::Vector{Int}, conjB::Bool, IC::Vector{Int},
+        istemp::Val, backend, allocator
+    )
+    # only `_ncon_contract!` should be specialized on the types of the tensors
+    @nospecialize A B
+    pA, pB, pAB = contract_indices(IA, IB, IC)
+    # function barrier: the number of indices of `A`, `B` and `C` is only known at runtime
+    # note: the tuples are passed separately rather than as `Index2Tuple`s to avoid boxing
+    return _ncon_contract!(
+        A, pA[1], pA[2], conjA, B, pB[1], pB[2], conjB, pAB[1], istemp, backend, allocator
+    )
+end
+function _ncon_contract!(
+        A, oindA, cindA, conjA, B, cindB, oindB, conjB, indCinoAB, istemp::Val,
+        backend, allocator
+    )
+    pA = (oindA, cindA)
+    pB = (cindB, oindB)
+    # intermediates list the open indices of `A` before those of `B`, so partition them as
+    # `(open A; open B)`, which avoids repartitioning copies for e.g. symmetric tensors
+    pAB = istemp === Val(true) ? trivialpermutation(length(oindA), length(oindB)) :
+        (indCinoAB, ())
+    TC = promote_contract(scalartype(A), scalartype(B))
+    C = tensoralloc_contract(TC, A, pA, conjA, B, pB, conjB, pAB, istemp, allocator)
+    return tensorcontract!(C, A, pA, conjA, B, pB, conjB, pAB, One(), Zero(), backend, allocator)
 end
 
 function nconoutput(network, output)
@@ -91,5 +140,7 @@ function nconoutput(network, output)
 
     issetequal(output, outputindices) ||
         throw(ArgumentError("invalid NCON network: $network -> $output"))
-    return output
+    return collect(Int, output)
 end
+
+_ncon_conjlist(conjlist) = collect(Bool, conjlist)
