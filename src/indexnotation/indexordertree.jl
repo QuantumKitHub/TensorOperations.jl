@@ -1,4 +1,4 @@
-# verify that every conraction index appears exactly twice, and any other index exactly once
+# verify that every contraction index appears exactly twice, and any other index exactly once
 function _verify_indexorder(network, indexorder)
     for indices in network
         for i in indices
@@ -22,11 +22,11 @@ function _indexordertree_steps(network, indexorder)
     partialtrees = collect(1:length(network))
     group = collect(1:length(network))
     for c in indexorder
-        k1 = findfirst(indices -> c in indices, network)
+        # trace indices have already been removed from the network
+        k1 = findfirst(∋(c), network)
         isnothing(k1) && continue
-        # trace indices have already been removed, so `c` appears in another tensor
-        k2 = findnext(indices -> c in indices, network, k1 + 1)
-        isnothing(k2) && continue
+        k2 = findnext(∋(c), network, k1 + 1)
+        @assert !isnothing(k2) # guaranteed by `_verify_indexorder`
         _mergetrees!(steps, partialtrees, group, k1, k2)
     end
     return _finalizetree!(steps, partialtrees, group)

@@ -197,7 +197,7 @@ end
 @non_differentiable TensorOperations._ncontree_steps(args...)
 @non_differentiable TensorOperations._indexordertree_steps(args...)
 # label manipulations that mutate arrays, which is not supported by e.g. Zygote
-@non_differentiable TensorOperations._ncon_network(args...)
+@non_differentiable TensorOperations.unique2(args...)
 @non_differentiable TensorOperations._ncon_labelvector(args...)
 @non_differentiable TensorOperations._ncon_conjlist(args...)
 @non_differentiable TensorOperations._ncon_symdiff(args...)
