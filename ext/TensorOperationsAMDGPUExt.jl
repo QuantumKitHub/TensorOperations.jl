@@ -5,12 +5,11 @@ using AMDGPU.hipTENSOR
 using TensorOperations
 using TensorOperations: TensorOperations as TO
 using TensorOperations: hipTENSORBackend, AMDAllocator, DefaultAllocator
+using TensorOperations: StridedNative
 using TensorOperations: isstrided
 
 using Strided
 using TupleTools: TupleTools as TT
-
-hiptensor_working = AMDGPU.hipTENSOR.has_hiptensor()
 
 using AMDGPU.hipTENSOR: OP_IDENTITY, OP_CONJ, OP_ADD
 using AMDGPU.hipTENSOR: is_unary, is_binary
@@ -22,6 +21,8 @@ using AMDGPU.hipTENSOR: hiptensorCreatePlanPreference, hiptensorPlan, hipTensorP
 
 using AMDGPU.hipTENSOR: elementwise_binary_execute!, permute!, contract!, reduce!
 using AMDGPU.hipTENSOR: reduction_compute_types, hiptensorCreateReduction
+using AMDGPU.hipTENSOR: permutation_compute_types, elementwise_binary_compute_types,
+    contraction_compute_types
 using AMDGPU.Adapt: adapt
 
 #-------------------------------------------------------------------------------------------
@@ -140,20 +141,38 @@ end
 #-------------------------------------------------------------------------------------------
 # Backend selection and passing
 #-------------------------------------------------------------------------------------------
-# A Base wrapper over `ROCArray` will first pass via the `select_backend` methods for
-# `AbstractArray` and be converted into a `StridedView` if it satisfies `isstrided`. Hence,
-# we only need to capture `ROCStridedView` here. TODO handle the case where hipTensor isn't
-# functional.
-function TO.select_backend(::typeof(TO.tensoradd!), ::ROCStridedView, ::ROCStridedView)
-    return hipTENSORBackend()
+# hipTENSOR only implements a handful of element type combinations for each operation (in
+# particular, no complex permutations, elementwise operations or reductions), and might not
+# be functional at all on the current device. Everything else is handled by the Strided
+# implementation, which also runs on `ROCArray`s. Support for double precision types is also
+# pretty spotty so that may fall back as well.
+hiptensor_supports(table, eltypes) = has_hiptensor() && haskey(table, eltypes)
+
+# `tensoradd!` maps onto a permutation if `β` is zero, and onto an elementwise binary
+# operation otherwise
+supports_add(C, A) = supports_add(C, A, false) || supports_add(C, A, true)
+supports_add(C, A, β) = hiptensor_supports(
+    iszero(β) ? permutation_compute_types : elementwise_binary_compute_types,
+    (eltype(A), eltype(C))
+)
+supports_trace(C, A) = hiptensor_supports(reduction_compute_types, (eltype(A), eltype(C)))
+supports_contract(C, A, B) =
+    hiptensor_supports(contraction_compute_types, (eltype(A), eltype(B), eltype(C)))
+
+strided_contract_backend(C, A, B) = @invoke TO.select_backend(
+    TO.tensorcontract!::typeof(TO.tensorcontract!), C::StridedView, A::StridedView, B::StridedView
+)
+
+function TO.select_backend(::typeof(TO.tensoradd!), C::ROCStridedView, A::ROCStridedView)
+    return supports_add(C, A) ? hipTENSORBackend() : StridedNative()
 end
-function TO.select_backend(::typeof(TO.tensortrace!), ::ROCStridedView, ::ROCStridedView)
-    return hipTENSORBackend()
+function TO.select_backend(::typeof(TO.tensortrace!), C::ROCStridedView, A::ROCStridedView)
+    return supports_trace(C, A) ? hipTENSORBackend() : StridedNative()
 end
 function TO.select_backend(
-        ::typeof(TO.tensorcontract!), ::ROCStridedView, ::ROCStridedView, ::ROCStridedView
+        ::typeof(TO.tensorcontract!), C::ROCStridedView, A::ROCStridedView, B::ROCStridedView
     )
-    return hipTENSORBackend()
+    return supports_contract(C, A, B) ? hipTENSORBackend() : strided_contract_backend(C, A, B)
 end
 
 # Make sure that if the `hipTensorBackend` is specified, arrays are converted to ROCArrays
@@ -249,6 +268,9 @@ function TO.tensoradd!(
         α::Number, β::Number,
         backend::hipTENSORBackend, allocator
     )
+    supports_add(C, A, β) ||
+        return TO.tensoradd!(C, A, pA, conjA, α, β, StridedNative(), allocator)
+
     # hipTENSOR does not validate sizes itself
     TO.argcheck_tensoradd(C, A, TO.linearize(pA))
     TO.dimcheck_tensoradd(C, A, TO.linearize(pA))
@@ -291,6 +313,11 @@ function TO.tensorcontract!(
         α::Number, β::Number,
         backend::hipTENSORBackend, allocator
     )
+    supports_contract(C, A, B) || return TO.tensorcontract!(
+        C, A, pA, conjA, B, pB, conjB, pAB, α, β,
+        strided_contract_backend(C, A, B), allocator
+    )
+
     # hipTENSOR does not validate sizes itself
     TO.argcheck_tensorcontract(C, A, pA, B, pB, pAB)
     TO.dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
@@ -323,6 +350,9 @@ function TO.tensortrace!(
         α::Number, β::Number,
         backend::hipTENSORBackend, allocator
     )
+    supports_trace(C, A) ||
+        return TO.tensortrace!(C, A, p, q, conjA, α, β, StridedNative(), allocator)
+
     # hipTENSOR does not validate sizes itself
     TO.argcheck_tensortrace(C, A, TO.linearize(p), q)
     TO.dimcheck_tensortrace(C, A, TO.linearize(p), q)

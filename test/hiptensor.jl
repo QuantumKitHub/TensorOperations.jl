@@ -32,14 +32,13 @@ if hipTENSOR.has_hiptensor()
             @tensor C2[a, b, c, d] := ROCArray(A)[a, b, c, d] + α * ROCArray(B)[a, b, c, d]
             @test collect(C2) ≈ C1
 
-            # complex doens't work yet
-            #=C = randn(ComplexF32, (5, 6, 3, 4))
+            C = randn(ComplexF32, (5, 6, 3, 4))
             D = randn(ComplexF32, (5, 3, 4, 6))
             β = randn(ComplexF32)
             @tensor E1[a, b, c, d] := C[a, b, c, d] + β * conj(D[a, c, d, b])
             @tensor E2[a, b, c, d] := ROCArray(C)[a, b, c, d] +
                 β * conj(ROCArray(D)[a, c, d, b])
-            @test collect(E2) ≈ E1=#
+            @test collect(E2) ≈ E1
         end
 
         @testset "tensortrace" begin
@@ -48,8 +47,7 @@ if hipTENSOR.has_hiptensor()
             @tensor B2[a] := ROCArray(A)[a, b′, b′]
             @test collect(B2) ≈ B1
 
-            # not supported yet
-            #=C = randn(ComplexF32, (3, 20, 5, 3, 20, 4, 5))
+            C = randn(ComplexF32, (3, 20, 5, 3, 20, 4, 5))
             @tensor D1[e, a, d] := C[a, b, c, d, b, e, c]
             @tensor D2[e, a, d] := ROCArray(C)[a, b, c, d, b, e, c]
             @test collect(D2) ≈ D1
@@ -61,7 +59,7 @@ if hipTENSOR.has_hiptensor()
             α = randn(ComplexF32)
             @tensor D5[d, e, a] := α * C[a, b, c, d, b, e, c]
             @tensor D6[d, e, a] := α * ROCArray(C)[a, b, c, d, b, e, c]
-            @test collect(D6) ≈ D5=#
+            @test collect(D6) ≈ D5
         end
 
         @testset "tensorcontract" begin
@@ -76,12 +74,11 @@ if hipTENSOR.has_hiptensor()
             @tensor F1[a, b, c, d, e, f] := D[a, b, c] * conj(E[d, e, f])
             @tensor F2[a, b, c, d, e, f] := ROCArray(D)[a, b, c] * conj(ROCArray(E)[d, e, f])
             @test collect(F2) ≈ F1
-            # not yet supported
-            #=D = randn(Float64, (5, 5, 5))
+            D = randn(Float64, (5, 5, 5))
             E = rand(ComplexF64, (5, 5, 5))
             @tensor F1[a, b, c, d, e, f] := D[a, b, c] * conj(E[d, e, f])
             @tensor F2[a, b, c, d, e, f] := ROCArray(D)[a, b, c] * conj(ROCArray(E)[d, e, f])
-            @test collect(F2) ≈ F1=#
+            @test collect(F2) ≈ F1
         end
     end
 
@@ -389,10 +386,9 @@ if hipTENSOR.has_hiptensor()
     @testset "@hiptensor" verbose = true begin
         @testset "tensorcontract 1" begin
             A = randn(Float64, (3, 5, 4, 6))
-            # Float64 permutations are not supported yet
-            #=@tensor C1[4, 1, 3, 2] := A[1, 2, 3, 4]
+            @tensor C1[4, 1, 3, 2] := A[1, 2, 3, 4]
             @hiptensor C2[4, 1, 3, 2] := A[1, 2, 3, 4]
-            @test C1 ≈ collect(C2)=#
+            @test C1 ≈ collect(C2)
             @test_throws IndexError begin
                 @hiptensor C[1, 2, 3, 4] := A[1, 2, 3]
             end
@@ -402,10 +398,9 @@ if hipTENSOR.has_hiptensor()
 
             B = randn(Float64, (5, 6, 3, 4))
             p = [3, 1, 4, 2]
-            # Float64 permutations are not supported yet
-            #=@tensor C1[3, 1, 4, 2] := A[3, 1, 4, 2] + B[1, 2, 3, 4]
+            @tensor C1[3, 1, 4, 2] := A[3, 1, 4, 2] + B[1, 2, 3, 4]
             @hiptensor C2[3, 1, 4, 2] := A[3, 1, 4, 2] + B[1, 2, 3, 4]
-            @test C1 ≈ collect(C2)=#
+            @test C1 ≈ collect(C2)
             @test_throws DimensionMismatch begin
                 @hiptensor C[1, 2, 3, 4] := A[1, 2, 3, 4] + B[1, 2, 3, 4]
             end
@@ -433,17 +428,15 @@ if hipTENSOR.has_hiptensor()
         @testset "tensorcontract 2" begin
             A = randn(Float64, (5, 5, 5, 5))
             B = rand(ComplexF64, (5, 5, 5, 5))
-            # mixed real/complex contractions are not supported yet
-            #=@tensor C1[1, 2, 5, 6, 3, 4, 7, 8] := A[1, 2, 3, 4] * B[5, 6, 7, 8]
+            @tensor C1[1, 2, 5, 6, 3, 4, 7, 8] := A[1, 2, 3, 4] * B[5, 6, 7, 8]
             @hiptensor C2[1, 2, 5, 6, 3, 4, 7, 8] := A[1, 2, 3, 4] * B[5, 6, 7, 8]
-            @test C1 ≈ collect(C2)=#
+            @test C1 ≈ collect(C2)
             @test_throws IndexError begin
                 @hiptensor C[a, b, c, d, e, f, g, i] := A[a, b, c, d] * B[e, f, g, h]
             end
         end
 
-        # complex traces are not supported yet
-        #=@testset "tensorcontract 3" begin
+        @testset "tensorcontract 3" begin
             Da, Db, Dc, Dd, De, Df, Dg, Dh = 10, 15, 4, 8, 6, 7, 3, 2
             A = rand(ComplexF64, (Da, Dc, Df, Da, De, Db, Db, Dg))
             B = rand(ComplexF64, (Dc, Dh, Dg, De, Dd))
@@ -456,7 +449,7 @@ if hipTENSOR.has_hiptensor()
             E1 = sqrt(abs((@tensor tensorscalar(D1[d, f, h] * conj(D1[d, f, h])))))
             E2 = sqrt(abs((@hiptensor tensorscalar(D2[d, f, h] * conj(D2[d, f, h])))))
             @test E1 ≈ E2
-        end=#
+        end
 
         @testset "views" begin
             p = [3, 1, 4, 2]
@@ -551,6 +544,42 @@ if hipTENSOR.has_hiptensor()
             @tensor Ccopy[d, a, e] -= α * Acopy[a, b, c, d] * conj(Bcopy[c, e, b])
             @test copy(C) ≈ Ccopy
         end
+    end
+
+    @testset "unsupported types fall back to Strided" begin
+        using TensorOperations: select_backend, StridedNative, StridedBLAS
+        using Strided: StridedView
+        sv(T, dims...) = StridedView(ROCArray(rand(T, dims...)))
+
+        A32, C32 = sv(Float32, 4, 4), sv(Float32, 4, 4)
+        @test select_backend(tensoradd!, C32, A32) == hipTENSORBackend()
+        @test select_backend(tensortrace!, sv(Float32, 4), sv(Float32, 4, 4, 4)) ==
+            hipTENSORBackend()
+        @test select_backend(tensorcontract!, C32, A32, A32) == hipTENSORBackend()
+
+        Az, Cz = sv(ComplexF32, 4, 4), sv(ComplexF32, 4, 4)
+        @test select_backend(tensoradd!, Cz, Az) == StridedNative()
+        @test select_backend(tensortrace!, sv(ComplexF32, 4), sv(ComplexF32, 4, 4, 4)) ==
+            StridedNative()
+        @test select_backend(tensorcontract!, Cz, Az, Az) == hipTENSORBackend()
+        @test select_backend(tensorcontract!, Cz, A32, Az) == StridedBLAS()
+        Ai = sv(Int, 4, 4)
+        @test select_backend(tensorcontract!, Ai, Ai, Ai) == StridedNative()
+
+        # results stay on the device and match the host
+        A = randn(ComplexF64, (3, 4, 5))
+        @tensor C1[c, a, b] := 2 * conj(A[a, b, c])
+        C2 = similar(ROCArray(A), (5, 3, 4))
+        @tensor backend = hipTENSORBackend() C2[c, a, b] = 2 * conj(ROCArray(A)[a, b, c])
+        @test C2 isa ROCArray
+        @test collect(C2) ≈ C1
+
+        A = rand(-5:5, (3, 4))
+        B = rand(-5:5, (4, 5))
+        @tensor C1[a, c] := A[a, b] * B[b, c]
+        @tensor C2[a, c] := ROCArray(A)[a, b] * ROCArray(B)[b, c]
+        @test C2 isa ROCArray
+        @test collect(C2) == C1
     end
 
     @testset "tensortrace! does not leak plans" begin
