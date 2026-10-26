@@ -1,63 +1,33 @@
-# verify that every conraction index appears exactly twice, and any other index exactly once
+# verify that every contraction index appears exactly twice, and any other index exactly once
 function _verify_indexorder(network, indexorder)
-    allindices = Vector{Any}()
-    for ind in network
-        append!(allindices, ind)
-    end
-    while length(allindices) > 0
-        i = pop!(allindices)
-        if i ∈ indexorder # contraction index
-            k = findfirst(isequal(i), allindices)
-            k === nothing && return false
-            l = findnext(isequal(i), allindices, k + 1)
-            l !== nothing && return false
-            deleteat!(allindices, k)
-        else
-            findfirst(isequal(i), allindices) === nothing || return false
+    for indices in network
+        for i in indices
+            n = sum(ind -> count(isequal(i), ind), network)
+            n == (i in indexorder ? 2 : 1) || return false
         end
     end
     return true
 end
 
 function indexordertree(network, indexorder)
-    _verify_indexorder(network, indexorder) ||
-        throw(ArgumentError("not a valid contraction tree with contraction indices $indexorder"))
-    contractionindices = Vector{Vector{Any}}(undef, length(network))
-    for k in 1:length(network)
-        indices = network[k]
-        # trace indices have already been removed, remove open indices by filtering on positive values
-        contractionindices[k] = filter(in(indexorder), indices)
-    end
-    partialtrees = collect(Any, 1:length(network))
-    return _indexordertree!(partialtrees, contractionindices, indexorder)
+    return _nestedtree(_indexordertree_steps(network, indexorder), length(network))
 end
 
-function _indexordertree!(partialtrees, contractionindices, indexorder)
-    while length(indexorder) > 0
-        c = indexorder[1]
-        i1 = findfirst(x -> in(c, x), contractionindices)
-        if i1 === nothing
-            indexorder = indexorder[2:end]
-        else
-            i2 = findnext(x -> in(c, x), contractionindices, i1 + 1)
-            @assert i2 !== nothing
-            cs = intersect(contractionindices[i1], contractionindices[i2])
-            indexorder = setdiff(indexorder, cs)
-            newindices = unique2(vcat(contractionindices[i1], contractionindices[i2]))
-            newtree = Any[partialtrees[i1], partialtrees[i2]]
-            partialtrees[i1] = newtree
-            deleteat!(partialtrees, i2)
-            contractionindices[i1] = newindices
-            deleteat!(contractionindices, i2)
-        end
+# Determine the contraction order where the indices are contracted in the order specified by
+# `indexorder`, as a list of pairwise contractions (see `_mergetrees!`).
+function _indexordertree_steps(network, indexorder)
+    _verify_indexorder(network, indexorder) ||
+        throw(ArgumentError("not a valid contraction tree with contraction indices $indexorder"))
+    steps = NTuple{2, Int}[]
+    partialtrees = collect(1:length(network))
+    group = collect(1:length(network))
+    for c in indexorder
+        # trace indices have already been removed from the network
+        k1 = findfirst(∋(c), network)
+        isnothing(k1) && continue
+        k2 = findnext(∋(c), network, k1 + 1)
+        @assert !isnothing(k2) # guaranteed by `_verify_indexorder`
+        _mergetrees!(steps, partialtrees, group, k1, k2)
     end
-    if length(partialtrees) > 1
-        @assert all(isempty, contractionindices) # disconnected network
-        while length(partialtrees) > 1
-            partialtrees[end - 1] = Any[partialtrees[end - 1], partialtrees[end]]
-            pop!(partialtrees)
-            pop!(contractionindices)
-        end
-    end
-    return partialtrees[1]
+    return _finalizetree!(steps, partialtrees, group)
 end

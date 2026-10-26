@@ -9,19 +9,22 @@ function _check_nconstyle(network, ::Val{check}) where {check}
             throw(IndexError("All indices must be integers"))
         append!(allindices, ind)
     end
-    while length(allindices) > 0
-        i = pop!(allindices)
+    # after sorting, equal labels are adjacent
+    sort!(allindices)
+    n = length(allindices)
+    j = 1
+    while j <= n
+        i = allindices[j]
         if i > 0 # positive labels represent contractions or traces and should appear twice
-            k = findfirst(isequal(i), allindices)
-            isnothing(k) && return check ? false :
+            (j == n || allindices[j + 1] != i) && return check ? false :
                 throw(IndexError(lazy"Index $i appears only once in the network"))
-            l = findnext(isequal(i), allindices, k + 1)
-            !isnothing(l) && return check ? false :
+            (j + 2 <= n && allindices[j + 2] == i) && return check ? false :
                 throw(IndexError(lazy"Index $i appears more than twice in the network"))
-            deleteat!(allindices, k)
+            j += 2
         elseif i < 0 # negative labels represent open indices and should appear once
-            isnothing(findfirst(isequal(i), allindices)) || return check ? false :
+            (j < n && allindices[j + 1] == i) && return check ? false :
                 throw(IndexError(lazy"Index $i appears more than once in the network"))
+            j += 1
         else # i == 0
             return check ? false : throw(IndexError("Index 0 is not allowed in the network"))
         end
@@ -29,39 +32,75 @@ function _check_nconstyle(network, ::Val{check}) where {check}
     return check ? true : nothing
 end
 
-function ncontree(network)
-    contractionindices = Vector{Vector{Int}}(undef, length(network))
-    for k in 1:length(network)
-        indices = network[k]
-        # trace indices have already been removed, remove open indices by filtering on positive values
-        contractionindices[k] = filter(i -> i > 0, indices)
-    end
-    partialtrees = collect(Any, 1:length(network))
-    return _ncontree!(partialtrees, contractionindices)
-end
+ncontree(network) = _nestedtree(_ncontree_steps(network), length(network))
 
-function _ncontree!(partialtrees, contractionindices)
-    if length(partialtrees) == 1
-        return partialtrees[1]
-    end
-    if all(isempty, contractionindices) # disconnected network
-        partialtrees[end - 1] = Any[partialtrees[end - 1], partialtrees[end]]
-        pop!(partialtrees)
-        pop!(contractionindices)
-    else
-        let firstind = minimum(vcat(contractionindices...))
-            i1 = findfirst(x -> in(firstind, x), contractionindices)
-            i2 = findnext(x -> in(firstind, x), contractionindices, i1 + 1)
-            @assert i1 !== nothing && i2 !== nothing
-            newindices = unique2(vcat(contractionindices[i1], contractionindices[i2]))
-            newtree = Any[partialtrees[i1], partialtrees[i2]]
-            partialtrees[i1] = newtree
-            deleteat!(partialtrees, i2)
-            contractionindices[i1] = newindices
-            deleteat!(contractionindices, i2)
+# Determine the contraction order where the indices are contracted in increasing order, as a
+# list of pairwise contractions (see `_mergetrees!`).
+function _ncontree_steps(network)
+    # collect the positive labels, i.e. the contraction indices, and the tensors they belong to
+    contractionindices = Int[]
+    owners = Int[]
+    for (k, indices) in enumerate(network)
+        for i in indices
+            i > 0 || continue
+            push!(contractionindices, i)
+            push!(owners, k)
         end
     end
-    return _ncontree!(partialtrees, contractionindices)
+
+    # contract the indices in increasing order
+    steps = NTuple{2, Int}[]
+    partialtrees = collect(1:length(network))
+    group = collect(1:length(network))
+    # every contraction index appears twice, so after sorting its occurrences are adjacent
+    perm = sortperm(contractionindices)
+    for p in 1:2:length(perm)
+        _mergetrees!(steps, partialtrees, group, owners[perm[p]], owners[perm[p + 1]])
+    end
+    return _finalizetree!(steps, partialtrees, group)
+end
+
+# A contraction tree for a network of `n` tensors is represented as a list of pairwise
+# contractions `steps`, where `steps[s] = (i, j)` contracts the (partial) results `i` and `j`.
+# Here, results `1:n` are the tensors themselves, and result `n + s` is the result of `steps[s]`.
+# The partial tree containing tensor `k` is `partialtrees[group[k]]`.
+
+# Merge the partial trees containing tensors `k1` and `k2`. The merged tree replaces the one
+# containing the tensor that comes first, and nothing happens if both tensors are already in
+# the same partial tree.
+function _mergetrees!(
+        steps::Vector{NTuple{2, Int}}, partialtrees::Vector{Int}, group::Vector{Int},
+        k1::Int, k2::Int
+    )
+    g1, g2 = minmax(group[k1], group[k2])
+    g1 == g2 && return steps
+    push!(steps, (partialtrees[g1], partialtrees[g2]))
+    partialtrees[g1] = length(group) + length(steps)
+    replace!(group, g2 => g1)
+    return steps
+end
+
+# Combine the remaining partial trees, which are disconnected and thus require outer products.
+function _finalizetree!(
+        steps::Vector{NTuple{2, Int}}, partialtrees::Vector{Int}, group::Vector{Int}
+    )
+    n = length(group)
+    remaining = unique!(group)
+    tree = partialtrees[remaining[1]]
+    for k in 2:length(remaining)
+        push!(steps, (tree, partialtrees[remaining[k]]))
+        tree = n + length(steps)
+    end
+    return steps
+end
+
+# convert a list of pairwise contractions to a nested contraction tree
+function _nestedtree(steps::Vector{NTuple{2, Int}}, n::Int)
+    trees = collect(Any, 1:n)
+    for (i, j) in steps
+        push!(trees, Any[trees[i], trees[j]])
+    end
+    return trees[end]
 end
 
 """
@@ -97,10 +136,16 @@ function nconindexcompletion(ex)
     end
 end
 
+# Resolve the traces in the network, and canonicalize the types of the tensor list and the
+# network, such that the remainder of `ncon` is type stable and only compiled once.
 function resolve_traces(tensors, network)
-    transformed = map(zip(tensors, network)) do (A, IA)
-        IC = unique2(IA)
-        return length(IC) == length(IA) ? (A, IA) : (tensortrace(IC, A, IA), IC)
-    end
-    return first.(transformed), last.(transformed)
+    network′ = Vector{Int}[unique2(IA) for IA in network]
+    tensors′ = Any[
+        length(IA) == length(IC) ? A : tensortrace(IC, A, _ncon_labelvector(IA))
+            for (A, IA, IC) in zip(tensors, network, network′)
+    ]
+    return tensors′, network′
 end
+
+# canonicalize any list of labels, e.g. a `Tuple` or a row matrix like `[1 2 -1]`
+_ncon_labelvector(IA) = vec(collect(Int, IA))

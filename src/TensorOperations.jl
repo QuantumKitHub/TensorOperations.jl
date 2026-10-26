@@ -51,8 +51,11 @@ include("indexnotation/analyzers.jl")
 include("indexnotation/preprocessors.jl")
 include("indexnotation/postprocessors.jl")
 include("indexnotation/contractiontrees.jl")
+# also used at runtime by `ncon`, so these should be specialized
+@specialize
 include("indexnotation/ncontree.jl")
 include("indexnotation/indexordertree.jl")
+@nospecialize
 include("indexnotation/poly.jl")
 include("indexnotation/optdata.jl")
 include("indexnotation/optimaltree.jl")

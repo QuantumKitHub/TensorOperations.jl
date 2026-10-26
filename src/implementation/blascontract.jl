@@ -41,74 +41,57 @@ function blas_contract!(
     return C
 end
 
-# implement necessary permutations
+# implement necessary permutations - each input is made BLAS-contractable and reshaped into a
+# matrix in a separate step within each branch, to avoid boxing/type instabilities from
+# returning a union of the input and its permuted copy; as the subsequent steps only receive
+# matrices, they no longer depend on the number of indices of the inputs
 function _blas_contract!(C, A, pA, B, pB, pAB, α, β, backend, allocator)
-    TC = eltype(C)
-
-    A_, pA, flagA = makeblascontractable(A, pA, TC, backend, allocator)
-    B_, pB, flagB = makeblascontractable(B, pB, TC, backend, allocator)
-
-    # the partition of `ipAB` is required by `isblasdestination` and `tensoralloc_add`, but
-    # the actual contraction only needs the linearized permutation
     ipAB = oindABinC(pAB, pA, pB)
-    ipAB′ = linearize(ipAB)
-    flagC = isblasdestination(C, ipAB)
-    if flagC
-        C_ = C
-        _unsafe_blas_contract!(C_, A_, pA, B_, pB, ipAB′, α, β)
+    if isblascontractable(A, pA) && eltype(A) == eltype(C)
+        return _blas_contract_B!(C, _blas_matrix(A, pA), B, pB, pAB, ipAB, α, β, backend, allocator)
     else
+        A_ = tensoralloc_add(eltype(C), A, pA, false, Val(true), allocator)
+        Anew = tensoradd!(SV(A_), A, pA, false, One(), Zero(), backend, allocator)
+        Amat = _blas_matrix(Anew, trivialpermutation(pA))
+        _blas_contract_B!(C, Amat, B, pB, pAB, ipAB, α, β, backend, allocator)
+        tensorfree!(A_, allocator)
+        return C
+    end
+end
+function _blas_contract_B!(C, A, B, pB, pAB, ipAB, α, β, backend, allocator)
+    if isblascontractable(B, pB) && eltype(B) == eltype(C)
+        return _blas_contract_C!(C, A, _blas_matrix(B, pB), pAB, ipAB, α, β, backend, allocator)
+    else
+        B_ = tensoralloc_add(eltype(C), B, pB, false, Val(true), allocator)
+        Bnew = tensoradd!(SV(B_), B, pB, false, One(), Zero(), backend, allocator)
+        Bmat = _blas_matrix(Bnew, trivialpermutation(pB))
+        _blas_contract_C!(C, A, Bmat, pAB, ipAB, α, β, backend, allocator)
+        tensorfree!(B_, allocator)
+        return C
+    end
+end
+function _blas_contract_C!(C, A, B, pAB, ipAB, α, β, backend, allocator)
+    if isblasdestination(C, ipAB)
+        mul!(_blas_matrix(C, ipAB), A, B, α, β)
+    else
+        TC = eltype(C)
         C_ = SV(tensoralloc_add(TC, C, ipAB, false, Val(true), allocator))
-        _unsafe_blas_contract!(
-            C_, A_, pA, B_, pB, trivialpermutation(ipAB′),
-            one(TC), zero(TC)
-        )
+        mul!(_blas_matrix(C_, trivialpermutation(ipAB)), A, B, one(TC), zero(TC))
         # `C` already exists, so only the permutation of `pAB` matters here and it can be
         # handed over in the canonical `{N,0}` partition
         tensoradd!(C, C_, (pAB, ()), false, α, β, backend, allocator)
         tensorfree!(C_.parent, allocator)
     end
-    flagA || tensorfree!(A_.parent, allocator)
-    flagB || tensorfree!(B_.parent, allocator)
     return C
 end
 
-# perform the actual contraction, assuming it can be done as matrix multiplication by simply
-# reshaping without any further allocations
-function _unsafe_blas_contract!(
-        C::StridedView{T},
-        A::StridedView{T}, pA,
-        B::StridedView{T}, pB,
-        pAB::IndexTuple, α, β
-    ) where {T <: BlasFloat}
-    sizeA = size(A)
-    sizeB = size(B)
-    csizeA = TupleTools.getindices(sizeA, pA[2])
-    csizeB = TupleTools.getindices(sizeB, pB[1])
-    osizeA = TupleTools.getindices(sizeA, pA[1])
-    osizeB = TupleTools.getindices(sizeB, pB[2])
-
-    mul!(
-        sreshape(permutedims(C, pAB), (prod(osizeA), prod(osizeB))),
-        sreshape(permutedims(A, linearize(pA)), (prod(osizeA), prod(csizeA))),
-        sreshape(permutedims(B, linearize(pB)), (prod(csizeB), prod(osizeB))),
-        α, β
-    )
-
-    return C
-end
-
-function makeblascontractable(A, pA, TC, backend, allocator)
-    flagA = isblascontractable(A, pA) && eltype(A) == TC
-    if !flagA
-        A_ = tensoralloc_add(TC, A, pA, false, Val(true), allocator)
-        Anew = SV(A_)
-        Anew = tensoradd!(Anew, A, pA, false, One(), Zero(), backend, allocator)
-        pAnew = trivialpermutation(pA)
-    else
-        Anew = A
-        pAnew = pA
-    end
-    return Anew, pAnew, flagA
+# reshape `A` into the matrix with the indices `p[1]` as rows and `p[2]` as columns, assuming
+# this is possible without any further allocations
+function _blas_matrix(A::StridedView, p::Index2Tuple)
+    sz = size(A)
+    m = prod(TupleTools.getindices(sz, p[1]))
+    n = prod(TupleTools.getindices(sz, p[2]))
+    return sreshape(permutedims(A, linearize(p)), (m, n))
 end
 
 function isblascontractable(A::StridedView, p::Index2Tuple)
