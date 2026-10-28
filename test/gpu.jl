@@ -183,8 +183,9 @@ end
         @test buffer.offset == 0
         @test buffer.max_offset > 0
 
-        if AT === JLArray
-            # Disjoint JLArray slices are reported as aliases once the buffer is warm.
+        if AT === JLArray && pkgversion(JLArrays) < v"0.4.2"
+            # Disjoint JLArray slices are reported as aliases once the buffer is warm, unless
+            # JLArrays implements `GPUArrays.memory_location` (JLArrays v0.4.2, GPUArrays v12.1).
             # https://github.com/JuliaGPU/GPUArrays.jl/pull/803
             # https://github.com/QuantumKitHub/StridedViews.jl/pull/57
             @test_broken begin
