@@ -7,7 +7,7 @@ on:
       - 'release-'
     tags: '*'
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened, ready_for_review, closed]
   workflow_dispatch:
 
 concurrency:
@@ -17,26 +17,14 @@ concurrency:
 jobs:
   test:
     name: "Tests"
-    strategy:
-      fail-fast: false
-      matrix:
-        version:
-          - 'lts' # julia lts
-          - '1' # latest stable 1.x release of Julia
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-        # macOS and Windows only with the latest Julia version
-        exclude:
-          - {version: 'lts', os: macos-latest}
-          - {version: 'lts', os: windows-latest}
-    uses: "QuantumKitHub/QuantumKitHubActions/.github/workflows/Tests.yml@main"
+    uses: "QuantumKitHub/QuantumKitHubActions/.github/workflows/TestGroups.yml@main"
     with:
-      julia-version: "${{ matrix.version }}"
-      os: "${{ matrix.os }}"
+      fast: ${{ github.event.pull_request.draft == true }}
       nthreads: 4
       timeout-minutes: 90
+      # Enzyme plays a large role here, so also test macOS and Windows on PRs, once ubuntu passes
+      extra-os-on-prs: true
+      staged: ${{ github.event_name == 'pull_request' }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 

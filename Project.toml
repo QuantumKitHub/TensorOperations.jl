@@ -58,6 +58,7 @@ LinearAlgebra = "1.6"
 Logging = "1.6"
 Mooncake = "0.5"
 PackageExtensionCompat = "1"
+ParallelTestRunner = "2"
 PrecompileTools = "1.1"
 Preferences = "1.4"
 PtrArrays = "1.2"
@@ -86,10 +87,11 @@ EnzymeTestUtils = "12d8515a-0907-448a-8884-5fe00fdf1c5a"
 JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Mooncake = "da2b9cff-9c12-43a0-ae48-6db2b0edb7d6"
+ParallelTestRunner = "d3525ed8-44d0-4b2c-a655-542cee43accc"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 TBLIS = "48530278-0828-4a49-9772-0f3830dfa1e9"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 cuTENSOR = "011b41b2-24ef-40a8-b3eb-fa098493e9e1"
 
 [targets]
-test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU", "TBLIS"]
+test = ["Test", "Random", "DynamicPolynomials", "ChainRulesTestUtils", "ChainRulesCore", "cuRAND", "CUDACore", "cuTENSOR", "Aqua", "Logging", "Bumper", "Mooncake", "Enzyme", "EnzymeTestUtils", "Adapt", "JLArrays", "AMDGPU", "TBLIS", "ParallelTestRunner"]

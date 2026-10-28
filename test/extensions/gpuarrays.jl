@@ -6,6 +6,7 @@ using TupleTools
 using JLArrays
 using VectorInterface
 using CUDACore, AMDGPU
+using cuTENSOR # contractions of `CuArray`s require the cuTENSOR extension
 
 test_result(a::AbstractArray, b::AbstractArray; kwargs...) =
     isapprox(collect(a), collect(b); kwargs...)
