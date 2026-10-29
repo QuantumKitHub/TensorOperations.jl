@@ -11,7 +11,6 @@ filter_tests!(testsuite, args)
 if get(ENV, "BUILDKITE", "false") == "true"
     filter!(in(("extensions/cutensor", "extensions/gpuarrays")) ∘ first, testsuite)
 end
-Sys.isapple() && get(ENV, "CI", "false") == "true" && delete!(testsuite, "ad/enzyme")
 # the Windows build of TBLIS can only be tested for refusing to run
 delete!(testsuite, Sys.iswindows() ? "extensions/tblis" : "extensions/tblis_unsupported")
 
