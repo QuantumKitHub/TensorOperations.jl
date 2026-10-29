@@ -1,7 +1,7 @@
 @testset "@cutensor dependency check" begin
     @test_throws ArgumentError begin
         ex = :(@cutensor A[a, b, c, d] := B[a, b, c, d])
-        macroexpand(Main, ex)
+        macroexpand(@__MODULE__, ex)
     end
 end
 

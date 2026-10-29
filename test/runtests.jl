@@ -1,109 +1,68 @@
+using ParallelTestRunner
 using TensorOperations
-using LinearAlgebra
-using Test
-using Random
-Random.seed!(1234567)
 
-using TensorOperations: IndexError
-using TensorOperations: BaseCopy, BaseView, StridedNative, StridedBLAS
-using TensorOperations: DefaultAllocator, ManualAllocator, BufferAllocator
+testsuite = find_tests(@__DIR__)
 
-precision(::Type{<:Union{Float32, Complex{Float32}}}) = 1.0e-2
-precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
+# --fast is passed by the CI on draft PRs, but there are no slow tests to skip
+args = parse_args(ARGS; custom = ["fast"])
+filter_tests!(testsuite, args)
 
-# https://github.com/QuantumKitHub/TensorOperations.jl/issues/280: the generated code has to
-# keep the user's `LineNumberNode`s -- Julia only emits a coverage counter for lines that a
-# `LineNumberNode` points at -- and drop the ones synthesized by the parser, which would
-# otherwise re-attribute the statements that follow them to a line in TensorOperations itself.
-# Only `LineNumberNode`s in block-statement position matter for that: elsewhere (most notably
-# the mandatory 2nd argument of a `:macrocall`) they are structurally required and left alone.
-function statementlinenumbernodes(ex, acc = LineNumberNode[])
-    if ex isa Expr
-        if ex.head === :block
-            for e in ex.args
-                e isa LineNumberNode && push!(acc, e)
+# don't run all tests on GPU, only the GPU specific ones
+if get(ENV, "BUILDKITE", "false") == "true"
+    filter!(in(("extensions/cutensor", "extensions/gpuarrays")) ∘ first, testsuite)
+end
+# the Windows build of TBLIS can only be tested for refusing to run
+delete!(testsuite, Sys.iswindows() ? "extensions/tblis" : "extensions/tblis_unsupported")
+
+# The cuTENSOR and Bumper tests first check that the macros requiring them throw when they are
+# not loaded, so they run on a fresh worker rather than one that may have loaded them already
+const fresh_worker_tests = ("extensions/cutensor", "extensions/bumper")
+const fresh_workers = Channel{ParallelTestRunner.PTRWorker}(Inf)
+function test_worker(name)
+    name in fresh_worker_tests || return nothing
+    worker = addworker()
+    put!(fresh_workers, worker)
+    return worker
+end
+
+const init_code = quote
+    using TensorOperations
+    using LinearAlgebra
+    using Test
+    using Random
+    Random.seed!(1234567)
+
+    const is_buildkite = get(ENV, "BUILDKITE", "false") == "true"
+
+    using TensorOperations: IndexError
+    using TensorOperations: BaseCopy, BaseView, StridedNative, StridedBLAS
+    using TensorOperations: DefaultAllocator, ManualAllocator, BufferAllocator
+
+    precision(::Type{<:Union{Float32, Complex{Float32}}}) = 1.0e-2
+    precision(::Type{<:Union{Float64, Complex{Float64}}}) = 1.0e-8
+
+    # https://github.com/QuantumKitHub/TensorOperations.jl/issues/280: the generated code has to
+    # keep the user's `LineNumberNode`s -- Julia only emits a coverage counter for lines that a
+    # `LineNumberNode` points at -- and drop the ones synthesized by the parser, which would
+    # otherwise re-attribute the statements that follow them to a line in TensorOperations itself.
+    # Only `LineNumberNode`s in block-statement position matter for that: elsewhere (most notably
+    # the mandatory 2nd argument of a `:macrocall`) they are structurally required and left alone.
+    function statementlinenumbernodes(ex, acc = LineNumberNode[])
+        if ex isa Expr
+            if ex.head === :block
+                for e in ex.args
+                    e isa LineNumberNode && push!(acc, e)
+                end
             end
+            foreach(e -> statementlinenumbernodes(e, acc), ex.args)
         end
-        foreach(e -> statementlinenumbernodes(e, acc), ex.args)
-    end
-    return acc
-end
-
-# don't run all tests on GPU, only the GPU
-# specific ones
-is_buildkite = get(ENV, "BUILDKITE", "false") == "true"
-if !is_buildkite
-    @testset "tensoropt" verbose = true begin
-        include("tensoropt.jl")
-    end
-    @testset "auxiliary" verbose = true begin
-        include("auxiliary.jl")
-    end
-    @testset "macro keywords" verbose = true begin
-        include("macro_kwargs.jl")
-    end
-    @testset "method syntax" verbose = true begin
-        include("methods.jl")
-    end
-    @testset "macro with index notation" verbose = true begin
-        include("tensor.jl")
-    end
-    @testset "allocator" verbose = true begin
-        include("allocator.jl")
-    end
-    @testset "ad" verbose = false begin
-        include("ad.jl")
-    end
-    @testset "mooncake" verbose = false begin
-        include("mooncake.jl")
-    end
-    is_apple_ci = Sys.isapple() && get(ENV, "CI", "false") == "true"
-    if !is_apple_ci
-        @testset "enzyme" verbose = false begin
-            include("enzyme.jl")
-        end
+        return acc
     end
 end
 
-# note: cuTENSOR should not be loaded before this point
-# as there is a test which requires it to be loaded after
-@testset "cuTENSOR extension" verbose = true begin
-    include("cutensor.jl")
-end
-@testset "GPUArrays" verbose = true begin
-    include("gpu.jl")
-end
-
-if !is_buildkite
-    # note: Bumper should not be loaded before this point
-    # as there is a test which requires it to be loaded after
-    @testset "Bumper extension" verbose = true begin
-        include("butensor.jl")
-    end
-
-    if Sys.iswindows()
-        # the Windows build of `tblis_jll` aborts the process from inside the library, so
-        # the extension refuses to call into it and there is nothing else to test
-        using TBLIS
-        @testset "TBLIS extension (unsupported platform)" begin
-            A = randn(Float64, (3, 4))
-            @test_throws ArgumentError tensoradd!(
-                zeros(Float64, (4, 3)), A, ((2, 1), ()), false, 1, 0,
-                TensorOperations.TBLISBackend()
-            )
-        end
-    else
-        @testset "TBLIS extension" verbose = true begin
-            include("tblis.jl")
-        end
-    end
-
-    @testset "Polynomials" begin
-        include("polynomials.jl")
-    end
-
-    @testset "Aqua" verbose = true begin
-        using Aqua
-        Aqua.test_all(TensorOperations)
-    end
+try
+    runtests(TensorOperations, args; testsuite, init_code, test_worker)
+finally
+    close(fresh_workers)
+    foreach(ParallelTestRunner.Malt.stop, fresh_workers)
 end
