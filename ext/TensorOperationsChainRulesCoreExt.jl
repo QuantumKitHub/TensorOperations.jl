@@ -34,6 +34,12 @@ function ChainRulesCore.rrule(
     return nothing, tensorfree!_pullback
 end
 function ChainRulesCore.rrule(
+        ::typeof(TensorOperations.tensorfree!), C, allocator = DefaultAllocator()
+    )
+    tensorfree!_pullback(Δargs...) = (NoTangent(), NoTangent(), NoTangent())
+    return nothing, tensorfree!_pullback
+end
+function ChainRulesCore.rrule(
         ::typeof(TensorOperations.tensoralloc), ttype, structure,
         istemp, allocator = DefaultAllocator()
     )

@@ -9,6 +9,7 @@ using Enzyme.EnzymeCore
 using Enzyme.EnzymeCore: EnzymeRules
 
 @inline EnzymeRules.inactive(::typeof(TensorOperations.tensorfree!), ::Any) = true
+@inline EnzymeRules.inactive(::typeof(TensorOperations.tensorfree!), ::Any, ::Any) = true
 @inline EnzymeRules.inactive_type(v::Type{<:AbstractBackend}) = true
 @inline EnzymeRules.inactive_type(v::Type{DefaultAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{<:CUDAAllocator}) = true
