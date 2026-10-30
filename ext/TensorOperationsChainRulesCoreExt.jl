@@ -27,15 +27,11 @@ using LinearAlgebra
 
 # Cannot free intermediate tensors when using AD
 # Thus we change the forward passes: `istemp=false` and `tensorfree!` is a no-op
-function ChainRulesCore.rrule(
-        ::typeof(TensorOperations.tensorfree!), allocator = DefaultAllocator()
-    )
+function ChainRulesCore.rrule(::typeof(TensorOperations.tensorfree!), C)
     tensorfree!_pullback(Δargs...) = (NoTangent(), NoTangent())
     return nothing, tensorfree!_pullback
 end
-function ChainRulesCore.rrule(
-        ::typeof(TensorOperations.tensorfree!), C, allocator = DefaultAllocator()
-    )
+function ChainRulesCore.rrule(::typeof(TensorOperations.tensorfree!), C, allocator)
     tensorfree!_pullback(Δargs...) = (NoTangent(), NoTangent(), NoTangent())
     return nothing, tensorfree!_pullback
 end
