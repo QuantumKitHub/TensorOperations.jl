@@ -27,6 +27,7 @@ Mooncake.tangent_type(::Type{ManualAllocator}) = Mooncake.NoTangent
 @zero_derivative DefaultCtx Tuple{typeof(TensorOperations.promote_add), Any}
 
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensorfree!), Any}
+Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensorfree!), Any, Any}
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensoralloc), Any, Any, Any, Any}
 
 Mooncake.@is_primitive DefaultCtx Tuple{typeof(tensorcontract!), AbstractArray, AbstractArray, Index2Tuple, Bool, AbstractArray, Index2Tuple, Bool, Index2Tuple, Number, Number, Vararg{Any}}
