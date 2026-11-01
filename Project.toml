@@ -41,7 +41,7 @@ TensorOperationscuTENSORExt = "cuTENSOR"
 TensorOperationsJLArraysExt = "JLArrays"
 
 [compat]
-AMDGPU = "2"
+AMDGPU = "2.8"
 Aqua = "0.6, 0.7, 0.8"
 Adapt = "4"
 Bumper = "0.6, 0.7"
