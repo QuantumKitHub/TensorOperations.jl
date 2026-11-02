@@ -1,5 +1,5 @@
 using TensorOperations
-using TensorOperations: StridedBLAS, StridedNative, linearize, numout
+using TensorOperations: StridedBLAS, StridedNative, DefaultBackend, cuTENSORBackend, linearize, numout
 using Test
 using Adapt
 using TupleTools
@@ -7,6 +7,7 @@ using JLArrays
 using VectorInterface
 using CUDACore, AMDGPU
 using cuTENSOR # contractions of `CuArray`s require the cuTENSOR extension
+using cuBLAS # matrix multiplications of `CuArray`s with `StridedBLAS` require the cuBLAS extension of Strided
 
 test_result(a::AbstractArray, b::AbstractArray; kwargs...) =
     isapprox(collect(a), collect(b); kwargs...)
@@ -34,32 +35,30 @@ bufferallocator(::Type{JLArray}; kwargs...) = TensorOperations.JLBufferAllocator
 bufferallocator(::Type{CuArray}; kwargs...) = TensorOperations.CUDABufferAllocator(; kwargs...)
 bufferallocator(::Type{ROCArray}; kwargs...) = TensorOperations.AMDBufferAllocator(; kwargs...)
 
-@testset "tensoradd! ($AT)" for AT in ATs
-    sz = (3, 5, 4, 6)
-    p = (3, 1, 4, 2)
-    for backend in backends, T in (Float32, ComplexF32)
-        A = randn(T, sz)
-        C = randn(T, TupleTools.getindices(sz, p))
+@isdefined(TestSuite) || include("../testsuite/TestSuite.jl")
 
-        @test compare(AT, C, A) do c, a
-            tensoradd!(c, a, (p, ()), false, One(), Zero(), backend)
-        end
+@testset "test suite: $backend ($AT)" for AT in ATs, backend in backends
+    TestSuite.test_backend(backend; arraytype = AT, eltypes = (Float32, ComplexF32))
+end
 
-        α = rand(T)
-        @test compare(AT, C, A) do c, a
-            tensoradd!(c, a, (p, ()), false, α, Zero(), backend)
-        end
-
-        β = rand(T)
-        @test compare(AT, C, A) do c, a
-            tensoradd!(c, a, (p, ()), false, α, β, backend)
-        end
-
-        T <: Real || @test compare(AT, C, A) do c, a
-            tensoradd!(c, a, (p, ()), true, α, β, backend)
-        end
+# cuTENSOR requires all arguments to have the same element type, and positive strides; the
+# default backend selects cuTENSOR only for equal element types, and Strided otherwise
+if CUDACore.functional()
+    @testset "test suite: cuTENSORBackend() (CuArray)" begin
+        TestSuite.test_backend(
+            cuTENSORBackend(); arraytype = CuArray, eltypes = (Float32, ComplexF32),
+            mixed_eltypes = (), negative_strides = false
+        )
     end
-    # test Diagonal special case
+    @testset "test suite: DefaultBackend() (CuArray)" begin
+        TestSuite.test_backend(
+            DefaultBackend(); arraytype = CuArray, eltypes = (Float32, ComplexF32),
+            negative_strides = false
+        )
+    end
+end
+
+@testset "tensoradd! with Diagonal ($AT)" for AT in ATs
     sz = (8, 8)
     p = (2, 1)
     diag_backends = [BaseCopy(), BaseView()]
@@ -85,75 +84,6 @@ bufferallocator(::Type{ROCArray}; kwargs...) = TensorOperations.AMDBufferAllocat
             tensoradd!(c, a, (p, ()), true, α, β, backend)
         end
     end
-end
-
-@testset "tensortrace! ($AT)" for AT in ATs
-    sz = (2, 4, 3, 2)
-    p = (2, 3)
-    q = ((1,), (4,))
-
-    for backend in backends, T in (Float32, ComplexF32)
-        A = randn(T, sz)
-        C = randn(T, TupleTools.getindices(sz, p))
-
-        @test compare(AT, C, A) do c, a
-            tensortrace!(c, a, (p, ()), q, false, One(), Zero(), backend)
-        end
-
-        α = rand(T)
-        @test compare(AT, C, A) do c, a
-            tensortrace!(c, a, (p, ()), q, false, α, Zero(), backend)
-        end
-
-        β = rand(T)
-        @test compare(AT, C, A) do c, a
-            tensortrace!(c, a, (p, ()), q, false, α, β, backend)
-        end
-
-        T <: Real || @test compare(AT, C, A) do c, a
-            tensortrace!(c, a, (p, ()), q, true, α, β, backend)
-        end
-    end
-end
-
-@testset "tensorcontract! ($AT)" for AT in ATs
-    sz = (2, 4, 3, 4, 2, 5)
-    pA = ((4, 1), (2, 3))
-    pB = ((3, 1), (2,))
-    pAB = ((1, 2, 3), ())
-
-    for backend in backends, T in (Float32, ComplexF32)
-        A = randn(T, (2, 4, 3, 2))
-        B = randn(T, (3, 3, 4))
-        C = randn(T, (2, 2, 3))
-
-        @test compare(AT, C, A, B) do c, a, b
-            tensorcontract!(c, a, pA, false, b, pB, false, pAB, One(), Zero(), backend)
-        end
-
-        α = rand(T)
-        @test compare(AT, C, A, B) do c, a, b
-            tensorcontract!(c, a, pA, false, b, pB, false, pAB, α, Zero(), backend)
-        end
-
-        β = rand(T)
-        @test compare(AT, C, A, B) do c, a, b
-            tensorcontract!(c, a, pA, false, b, pB, false, pAB, α, β, backend)
-        end
-
-        if !(T <: Real)
-            @test compare(AT, C, A, B) do c, a, b
-                tensorcontract!(c, a, pA, true, b, pB, false, pAB, α, β, backend)
-            end
-            @test compare(AT, C, A, B) do c, a, b
-                tensorcontract!(c, a, pA, false, b, pB, true, pAB, α, β, backend)
-            end
-            @test compare(AT, C, A, B) do c, a, b
-                tensorcontract!(c, a, pA, true, b, pB, true, pAB, α, β, backend)
-            end
-        end
-    end
-
 end
 
 @testset "BufferAllocator ($AT)" for AT in ATs

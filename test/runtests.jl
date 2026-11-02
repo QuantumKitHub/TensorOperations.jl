@@ -2,6 +2,8 @@ using ParallelTestRunner
 using TensorOperations
 
 testsuite = find_tests(@__DIR__)
+# the backend test suite in `test/testsuite` is used by the tests, but is not a test itself
+filter!(!startswith("testsuite/") ∘ first, testsuite)
 
 # --fast is passed by the CI on draft PRs, but there are no slow tests to skip
 args = parse_args(ARGS; custom = ["fast"])
