@@ -5,13 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.2...HEAD)
+## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.3...HEAD)
 
 ### Added
 
 ### Changed
-
-- Compat with GPUArrays is extended to include 12, and with JLArrays to include 0.4.
 
 ### Deprecated
 
@@ -19,16 +17,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `ncon` can be differentiated with Zygote, including networks with traces.
-- `ncon` accepts traces in networks whose index lists are given as row matrices, e.g. `[1 1 -1]`.
+### Performance
+
+## [5.8.3](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.2...v5.8.3) - 2026-11-02
+
+### Added
+
+- `cuTENSORBackend` accepts a `workspace` keyword (`:min`, `:default` or `:max`) to set cuTENSOR's workspace preference for contractions ([#318](https://github.com/QuantumKitHub/TensorOperations.jl/pull/318)).
+
+### Changed
+
+- Compat with GPUArrays is extended to include 12, and with JLArrays to include 0.4 ([#313](https://github.com/QuantumKitHub/TensorOperations.jl/pull/313)).
+
+### Fixed
+
+- `ncon` can be differentiated with Zygote, including networks with traces ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
+- `ncon` accepts traces in networks whose index lists are given as row matrices, e.g. `[1 1 -1]` ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
 - Contractions using the `StridedBLAS` backend no longer heap allocate a view of an input tensor when an allocator such as Bumper's is used ([#273](https://github.com/QuantumKitHub/TensorOperations.jl/issues/273)).
+- `BufferAllocator` now records the full buffer size a pass needs when it overflows its limit, so it no longer under-sizes the buffer on resize and fits everything on the next pass ([#310](https://github.com/QuantumKitHub/TensorOperations.jl/pull/310)).
+- The ChainRules, Enzyme and Mooncake rules cover `tensorfree!(C)` and `tensorfree!(C, allocator)`; the ChainRules rule previously had the wrong signature ([#321](https://github.com/QuantumKitHub/TensorOperations.jl/pull/321)).
 
 ### Performance
 
-- `ncon` has significantly less overhead: the network analysis and contraction tree construction are type stable, and every pairwise contraction goes through a single dynamic dispatch.
-- Contractions of `Array`s that require a permuted copy of an input no longer suffer from a type instability.
-- Index labels given as vectors, as in `ncon` or the method syntax `tensorcontract(IC, A, IA, B, IB)`, are converted to index permutations in a type-stable manner, which avoids compiling the conversion for every combination of numbers of indices.
-- `ncon` partitions its intermediates as `(open indices of A; open indices of B)` instead of placing all indices in the codomain, which avoids repartitioning copies for tensor types such as `TensorMap`s with symmetries ([#311](https://github.com/QuantumKitHub/TensorOperations.jl/issues/311)).
+- `ncon` has significantly less overhead: the network analysis and contraction tree construction are type stable, and every pairwise contraction goes through a single dynamic dispatch ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
+- Contractions of `Array`s that require a permuted copy of an input no longer suffer from a type instability ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
+- Index labels given as vectors, as in `ncon` or the method syntax `tensorcontract(IC, A, IA, B, IB)`, are converted to index permutations in a type-stable manner, which avoids compiling the conversion for every combination of numbers of indices ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
+- `ncon` partitions its intermediates as `(open indices of A; open indices of B)` instead of placing all indices in the codomain, which avoids repartitioning copies for tensor types such as `TensorMap`s with symmetries ([#311](https://github.com/QuantumKitHub/TensorOperations.jl/issues/311), [#312](https://github.com/QuantumKitHub/TensorOperations.jl/pull/312)).
 
 ## [5.8.2](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.1...v5.8.2) - 2026-09-30
 
