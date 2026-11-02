@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ncon` can be differentiated with Zygote, including networks with traces ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
 - `ncon` accepts traces in networks whose index lists are given as row matrices, e.g. `[1 1 -1]` ([#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
-- Contractions using the `StridedBLAS` backend no longer heap allocate a view of an input tensor when an allocator such as Bumper's is used ([#273](https://github.com/QuantumKitHub/TensorOperations.jl/issues/273)).
+- Contractions using the `StridedBLAS` backend no longer heap allocate a view of an input tensor when an allocator such as Bumper's is used ([#273](https://github.com/QuantumKitHub/TensorOperations.jl/issues/273), [#314](https://github.com/QuantumKitHub/TensorOperations.jl/pull/314)).
 - `BufferAllocator` now records the full buffer size a pass needs when it overflows its limit, so it no longer under-sizes the buffer on resize and fits everything on the next pass ([#310](https://github.com/QuantumKitHub/TensorOperations.jl/pull/310)).
 - The ChainRules, Enzyme and Mooncake rules cover `tensorfree!(C)` and `tensorfree!(C, allocator)`; the ChainRules rule previously had the wrong signature ([#321](https://github.com/QuantumKitHub/TensorOperations.jl/pull/321)).
 
