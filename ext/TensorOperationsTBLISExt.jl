@@ -157,6 +157,8 @@ function TO.tensortrace!(
         throw(ArgumentError("output tensor must not be aliased with input tensor"))
 
     T = eltype(C)
+    # TBLIS does not handle traces over dimensions of size zero, which only scale `C`
+    any(i -> iszero(size(A, i)), q[1]) && return TO._scale!(C, β)
     einA, einC = trace_labels(p, q)
     Av, Cv = SV(A), SV(C)
     lenA, strideA = tblis_dims(Av)

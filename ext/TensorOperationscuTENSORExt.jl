@@ -59,16 +59,17 @@ end
 #-------------------------------------------------------------------------------------------
 # A Base wrapper over `CuArray` will first pass via the `select_backend` methods for
 # `AbstractArray` and be converted into a `StridedView` if it satisfies `isstrided`. Hence,
-# we only need to capture `CuStridedView` here.
-function TO.select_backend(::typeof(TO.tensoradd!), ::CuStridedView, ::CuStridedView)
+# we only need to capture `CuStridedView` here. cuTENSOR requires all arguments to have the
+# same element type; other combinations fall back to the `StridedView` methods.
+function TO.select_backend(::typeof(TO.tensoradd!), ::CuStridedView{T}, ::CuStridedView{T}) where {T}
     return cuTENSORBackend()
 end
-function TO.select_backend(::typeof(TO.tensortrace!), ::CuStridedView, ::CuStridedView)
+function TO.select_backend(::typeof(TO.tensortrace!), ::CuStridedView{T}, ::CuStridedView{T}) where {T}
     return cuTENSORBackend()
 end
 function TO.select_backend(
-        ::typeof(TO.tensorcontract!), ::CuStridedView, ::CuStridedView, ::CuStridedView
-    )
+        ::typeof(TO.tensorcontract!), ::CuStridedView{T}, ::CuStridedView{T}, ::CuStridedView{T}
+    ) where {T}
     return cuTENSORBackend()
 end
 
@@ -83,6 +84,9 @@ function TO.tensoradd!(
         α::Number, β::Number,
         backend::cuTENSORBackend, allocator = CUDAAllocator()
     )
+    TO.argcheck_tensoradd(C, A, pA)
+    TO.dimcheck_tensoradd(C, A, pA)
+    isempty(C) && return C
     C_cuda, isview = _custrided(C, allocator)
     A_cuda, = _custrided(A, allocator)
     tensoradd!(C_cuda, A_cuda, pA, conjA, α, β, backend, allocator)
@@ -97,6 +101,11 @@ function TO.tensorcontract!(
         α::Number, β::Number,
         backend::cuTENSORBackend, allocator = CUDAAllocator()
     )
+    TO.argcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    TO.dimcheck_tensorcontract(C, A, pA, B, pB, pAB)
+    isempty(C) && return C
+    # cuTENSOR does not accept dimensions of size zero; contracting over them only scales `C`
+    any(i -> iszero(size(A, i)), pA[2]) && return TO._scale!(C, β)
     C_cuda, isview = _custrided(C, allocator)
     A_cuda, = _custrided(A, allocator)
     B_cuda, = _custrided(B, allocator)
@@ -112,6 +121,13 @@ function TO.tensortrace!(
         α::Number, β::Number,
         backend::cuTENSORBackend, allocator = CUDAAllocator()
     )
+    TO.argcheck_tensortrace(C, A, p, q)
+    TO.dimcheck_tensortrace(C, A, p, q)
+    isempty(C) && return C
+    # cuTENSOR does not accept dimensions of size zero; tracing over them only scales `C`
+    any(i -> iszero(size(A, i)), q[1]) && return TO._scale!(C, β)
+    # a trace without traced indices is a permutation, which cuTENSOR cannot plan as a reduction
+    isempty(q[1]) && return tensoradd!(C, A, p, conjA, α, β, backend, allocator)
     C_cuda, isview = _custrided(C, allocator)
     A_cuda, = _custrided(A, allocator)
     tensortrace!(C_cuda, A_cuda, p, q, conjA, α, β, backend, allocator)
