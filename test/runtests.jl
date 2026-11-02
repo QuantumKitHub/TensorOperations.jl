@@ -11,8 +11,14 @@ filter_tests!(testsuite, args)
 if get(ENV, "BUILDKITE", "false") == "true"
     filter!(in(("extensions/cutensor", "extensions/gpuarrays")) ∘ first, testsuite)
 end
-# the Windows build of TBLIS can only be tested for refusing to run
-delete!(testsuite, Sys.iswindows() ? "extensions/tblis" : "extensions/tblis_unsupported")
+# TBLIS only ships x86_64 binaries (so it cannot be loaded on e.g. Apple Silicon),
+# and the Windows build can only be tested for refusing to run
+if Sys.ARCH !== :x86_64
+    delete!(testsuite, "extensions/tblis")
+    delete!(testsuite, "extensions/tblis_unsupported")
+else
+    delete!(testsuite, Sys.iswindows() ? "extensions/tblis" : "extensions/tblis_unsupported")
+end
 
 # The cuTENSOR and Bumper tests first check that the macros requiring them throw when they are
 # not loaded, so they run on a fresh worker rather than one that may have loaded them already
