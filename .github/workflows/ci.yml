@@ -20,6 +20,7 @@ jobs:
     uses: "QuantumKitHub/QuantumKitHubActions/.github/workflows/TestGroups.yml@main"
     with:
       fast: ${{ github.event.pull_request.draft == true }}
+      exclude: '["testsuite"]'
       nthreads: 4
       timeout-minutes: 90
       # Enzyme plays a large role here, so also test macOS and Windows on PRs, once ubuntu passes

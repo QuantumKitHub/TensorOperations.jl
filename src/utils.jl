@@ -9,3 +9,7 @@ function _kron(Es::NTuple{N, Any}, ba) where {N}
     )
     return tensorproduct(E1, ((1, 2), ()), false, E2, p2, false, p, One(), ba...)
 end
+
+# `C = β * C`, for operations without anything to add to `C`, such as traces or contractions
+# over dimensions of size zero; `β = 0` overwrites `C`, which may contain `NaN`s
+_scale!(C::AbstractArray, β::Number) = iszero(β) ? fill!(C, zero(eltype(C))) : (C .= β .* C)

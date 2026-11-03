@@ -101,6 +101,9 @@ function tensorcontract!(
     )
     @nospecialize backend allocator
 
+    (Base.mightalias(C, A) || Base.mightalias(C, B)) &&
+        throw(ArgumentError("output tensor must not be aliased with input tensor"))
+
     # standardize input types for compilation time
     α′ = standardize_scalartype(C, α)
     β′ = standardize_scalartype(C, β)

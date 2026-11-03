@@ -104,6 +104,8 @@ function tensortrace!(
     szA = size(A)
     so = TupleTools.getindices(szA, linearize(p))
     st = prod(TupleTools.getindices(szA, q[1]))
+    # traced dimensions of size zero: there is nothing to add to `β * C`
+    iszero(st) && return _scale!(C, β)
     Ã = reshape(
         PermutedDimsArray(A, (linearize(p)..., linearize(q)...)), (prod(so), st, st)
     )
@@ -141,6 +143,8 @@ function tensortrace!(
     szA = size(A)
     so = TupleTools.getindices(szA, linearize(p))
     st = prod(TupleTools.getindices(szA, q[1]))
+    # traced dimensions of size zero: there is nothing to add to `β * C`
+    iszero(st) && return _scale!(C, β)
     perm = (linearize(p)..., linearize(q)...)
     Atemp = tensoralloc_add(eltype(A), A, (perm, ()), conjA, Val(true), allocator)
     Ã = reshape(permutedims!(Atemp, A, perm), (prod(so), st, st))
