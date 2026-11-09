@@ -70,6 +70,9 @@ end
 @testset "cuTENSOR extension" verbose = true begin
     include("cutensor.jl")
 end
+@testset "hipTENSOR extension" verbose = true begin
+    include("hiptensor.jl")
+end
 @testset "GPUArrays" verbose = true begin
     include("gpu.jl")
 end

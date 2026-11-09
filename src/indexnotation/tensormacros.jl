@@ -320,6 +320,32 @@ end
 function _cutensor end
 
 """
+    @hiptensor tensor_expr
+
+Use the GPU to perform all tensor operations, through the use of the hipTENSOR library. This
+will transfer all arrays to the GPU before performing the requested operations. If the
+output is an existing host array, the result will be transferred back. If a new array is
+created (i.e. using `:=`), it will remain on the GPU device and it is up to the user to
+transfer it back. This macro is equivalent to
+
+    @tensor backend = hipTENSORBackend() allocator = AMDAllocator() tensor_expr
+
+!!! note
+    This macro requires the hipTENSOR library to be installed and loaded. This can be
+    achieved by running `using AMDGPU.hipTENSOR` or `import AMDGPU.hipTENSOR` before using the macro.
+    Not every AMDGPU supports hipTENSOR, so you should also run `hipTENSOR.functional()` to check
+    whether the library has fully loaded.
+"""
+macro hiptensor(ex...)
+    if length(methods(_hiptensor)) == 0
+        throw(ArgumentError("AMDGPU.hipTENSOR not loaded: add `using AMDGPU.hipTENSOR` or `import AMDGPU.hipTENSOR` before using `@hiptensor`"))
+    end
+    return esc(_hiptensor(__source__, ex...))
+end
+
+function _hiptensor end
+
+"""
     @butensor tensor_expr
 
 Use Bumper.jl to handle allocation of temporary tensors. This macro will use the default
