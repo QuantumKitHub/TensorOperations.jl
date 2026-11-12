@@ -2,14 +2,13 @@ module TensorOperationsEnzymeExt
 
 using TensorOperations
 using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, ManualAllocator
+using TensorOperations.PtrArrays: PtrArray
 using VectorInterface
 using TupleTools
 using Enzyme
 using Enzyme.EnzymeCore
 using Enzyme.EnzymeCore: EnzymeRules
 
-@inline EnzymeRules.inactive(::typeof(TensorOperations.tensorfree!), ::Any) = true
-@inline EnzymeRules.inactive(::typeof(TensorOperations.tensorfree!), ::Any, ::Any) = true
 @inline EnzymeRules.inactive_type(v::Type{<:AbstractBackend}) = true
 @inline EnzymeRules.inactive_type(v::Type{DefaultAllocator}) = true
 @inline EnzymeRules.inactive_type(v::Type{<:CUDAAllocator}) = true
@@ -38,11 +37,11 @@ function EnzymeRules.augmented_primal(
         ::Type{RT},
         ttype::Const,
         structure::Const,
-        istemp::Const{Bool},
+        istemp::Const,
         allocator::Const
     ) where {RT}
     primal = EnzymeRules.needs_primal(config) ? TensorOperations.tensoralloc(ttype.val, structure.val, Val(false), allocator.val) : nothing
-    shadow = EnzymeRules.needs_shadow(config) ? TensorOperations.tensoralloc(ttype.val, structure.val, Val(false), allocator.val) : nothing
+    shadow = EnzymeRules.needs_shadow(config) ? zerovector!(TensorOperations.tensoralloc(ttype.val, structure.val, Val(false), allocator.val)) : nothing
     return EnzymeRules.AugmentedReturn(primal, shadow, nothing)
 end
 
@@ -53,10 +52,62 @@ function EnzymeRules.reverse(
         cache,
         ttype::Const,
         structure::Const,
-        istemp::Const{Bool},
+        istemp::Const,
         allocator::Const,
     ) where {RT}
     return nothing, nothing, nothing, nothing
+end
+
+function EnzymeRules.augmented_primal(
+        config::EnzymeRules.RevConfigWidth{1},
+        func::Const{typeof(TensorOperations.tensoralloc)},
+        ::Type{RT},
+        ttype::Const,
+        structure::Const,
+        istemp::Const{Val{true}},
+        allocator::Const{ManualAllocator}
+    ) where {RT}
+    primal_data = TensorOperations.tensoralloc(ttype.val, structure.val, Val(false), allocator.val)
+    primal = PtrArray(pointer(primal_data), size(primal_data)...)
+    if EnzymeRules.needs_shadow(config)
+        shadow_data = zerovector!(TensorOperations.tensoralloc(ttype.val, structure.val, Val(false), allocator.val))
+        shadow = PtrArray(pointer(shadow_data), size(shadow_data)...)
+    else
+        shadow, shadow_data = nothing, nothing
+    end
+    return EnzymeRules.AugmentedReturn(
+        EnzymeRules.needs_primal(config) ? primal : nothing, shadow, (primal_data, shadow_data)
+    )
+end
+function EnzymeRules.reverse(
+        config::EnzymeRules.RevConfigWidth{1},
+        func::Const{typeof(TensorOperations.tensoralloc)},
+        ::Type{RT},
+        cache,
+        ttype::Const,
+        structure::Const,
+        istemp::Const{Val{true}},
+        allocator::Const{ManualAllocator},
+    ) where {RT}
+    return nothing, nothing, nothing, nothing
+end
+
+function EnzymeRules.augmented_primal(
+        config::EnzymeRules.RevConfigWidth{1},
+        func::Const{typeof(TensorOperations.tensorfree!)},
+        ::Type{RT},
+        args::Annotation...
+    ) where {RT}
+    return EnzymeRules.AugmentedReturn(nothing, nothing, nothing)
+end
+function EnzymeRules.reverse(
+        config::EnzymeRules.RevConfigWidth{1},
+        func::Const{typeof(TensorOperations.tensorfree!)},
+        ::Type{RT},
+        cache,
+        args::Annotation...
+    ) where {RT}
+    return ntuple(Returns(nothing), length(args))
 end
 
 function EnzymeRules.augmented_primal(

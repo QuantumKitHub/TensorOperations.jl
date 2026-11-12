@@ -285,3 +285,27 @@ end
     @test all(RUNTIME_ACTIVITY_OPS[k] == ops[k] for k in keys(ops))
     @test dx ≈ sum(vec(sum(op; dims = 1)) .+ 2 * sum(x) .+ [1, 0, 0, 0] for op in values(ops))
 end
+
+# the intermediate `A * B` of the first block is needed in the reverse pass after the second block
+# has reused (`BufferAllocator`) or the first block has freed (`ManualAllocator`) its storage
+function enzyme_two_tensor_blocks(A, B, D, allocator)
+    @tensor allocator = allocator C[a, b] := A[a, c] * B[c, d] * D[d, b]
+    @tensor allocator = allocator E[a, b] := D[a, c] * B[c, d] * C[d, b]
+    return sum(abs2, E)
+end
+
+@testset "temporaries of $(nameof(typeof(allocator)))" for allocator in
+    (TensorOperations.ManualAllocator(), TensorOperations.BufferAllocator())
+    A, B, D = randn(4, 4), randn(4, 4), randn(4, 4)
+    function gradient(allocator)
+        dA, dB, dD = zero(A), zero(B), zero(D)
+        Enzyme.autodiff(
+            Reverse, enzyme_two_tensor_blocks, Active,
+            Duplicated(A, dA), Duplicated(B, dB), Duplicated(D, dD), Const(allocator)
+        )
+        return dA, dB, dD
+    end
+    ref = gradient(TensorOperations.DefaultAllocator())
+    @test all(gradient(allocator) .≈ ref)
+    @test all(gradient(allocator) .≈ ref)
+end
