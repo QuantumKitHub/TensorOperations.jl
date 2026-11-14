@@ -9,6 +9,7 @@ using TensorOperations: AbstractBackend, DefaultAllocator, CUDAAllocator, Manual
 using TensorOperations: tensoralloc, tensoradd!, tensorcontract!, tensortrace!
 using Mooncake: ReverseMode, DefaultCtx, Dual, CoDual, NoRData, arrayify, @zero_derivative, primal, tangent
 using VectorInterface, TupleTools
+using TensorOperations.PtrArrays: PtrArray
 
 Mooncake.tangent_type(::Type{Index2Tuple}) = Mooncake.NoTangent
 Mooncake.tangent_type(::Type{<:AbstractBackend}) = Mooncake.NoTangent
@@ -29,6 +30,30 @@ Mooncake.tangent_type(::Type{ManualAllocator}) = Mooncake.NoTangent
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensorfree!), Any}
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensorfree!), Any, Any}
 Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensoralloc), Any, Any, Any, Any}
+Mooncake.@from_rrule Mooncake.DefaultCtx Tuple{typeof(TensorOperations.tensoralloc), Any, Any, Any, Any, Any}
+
+Mooncake.@is_primitive DefaultCtx Tuple{typeof(tensoralloc), Type{<:AbstractArray}, Any, Val{true}, ManualAllocator}
+function Mooncake.rrule!!(
+        ::CoDual{typeof(tensoralloc)}, ttype_dttype::CoDual{<:Type{<:AbstractArray}}, structure_dstructure::CoDual,
+        istemp_distemp::CoDual{Val{true}}, allocator_dallocator::CoDual{ManualAllocator}
+    )
+    ttype, structure, allocator = primal(ttype_dttype), primal(structure_dstructure), primal(allocator_dallocator)
+    C_data = tensoralloc(ttype, structure, Val(false), allocator)
+    C = PtrArray(pointer(C_data), size(C_data)...)
+    dC_data = zerovector!(tensoralloc(ttype, structure, Val(false), allocator))
+    dC = PtrArray(pointer(dC_data), size(dC_data)...)
+    function tensoralloc_pullback(::NoRData)
+        GC.@preserve C_data dC_data nothing
+        return ntuple(Returns(NoRData()), 5)
+    end
+    return CoDual(C, _fdata(C, dC)), tensoralloc_pullback
+end
+_fdata(::PtrArray{T}, dC::PtrArray{T}) where {T} =
+    Mooncake.FData((; ptr = Ptr{Mooncake.tangent_type(T)}(dC.ptr), size = Mooncake.NoFData()))
+
+# `Mooncake.arrayify` does not know about the `PtrArray`s of a `ManualAllocator`
+_arrayify(x::CoDual{<:PtrArray}) = primal(x), PtrArray(tangent(x).data.ptr, size(primal(x))...)
+_arrayify(x) = arrayify(x)
 
 Mooncake.@is_primitive DefaultCtx Tuple{typeof(tensorcontract!), AbstractArray, AbstractArray, Index2Tuple, Bool, AbstractArray, Index2Tuple, Bool, Index2Tuple, Number, Number, Vararg{Any}}
 function Mooncake.rrule!!(
@@ -45,9 +70,9 @@ function Mooncake.rrule!!(
         β_dβ::CoDual{Tβ},
         ba_dba::CoDual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TB <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
-    B, dB = arrayify(B_dB)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
+    B, dB = _arrayify(B_dB)
     pA = primal(pA_dpA)
     pB = primal(pB_dpB)
     pAB = primal(pAB_dpAB)
@@ -82,9 +107,9 @@ function Mooncake.frule!!(
         β_dβ::Dual{Tβ},
         ba_dba::Dual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TB <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
-    B, dB = arrayify(B_dB)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
+    B, dB = _arrayify(B_dB)
     pA = primal(pA_dpA)
     pB = primal(pB_dpB)
     pAB = primal(pAB_dpAB)
@@ -119,8 +144,8 @@ function Mooncake.rrule!!(
         β_dβ::CoDual{Tβ},
         ba_dba::CoDual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
     pA = primal(pA_dpA)
     conjA = primal(conjA_dconjA)
     α = primal(α_dα)
@@ -148,8 +173,8 @@ function Mooncake.frule!!(
         β_dβ::Dual{Tβ},
         ba_dba::Dual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
     pA = primal(pA_dpA)
     conjA = primal(conjA_dconjA)
     α = primal(α_dα)
@@ -186,8 +211,8 @@ function Mooncake.rrule!!(
         β_dβ::CoDual{Tβ},
         ba_dba::CoDual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
     p = primal(p_dp)
     q = primal(q_dq)
     conjA = primal(conjA_dconjA)
@@ -217,8 +242,8 @@ function Mooncake.frule!!(
         β_dβ::Dual{Tβ},
         ba_dba::Dual...,
     ) where {Tα <: Number, Tβ <: Number, TA <: Number, TC <: Number}
-    C, dC = arrayify(C_dC)
-    A, dA = arrayify(A_dA)
+    C, dC = _arrayify(C_dC)
+    A, dA = _arrayify(A_dA)
     p = primal(p_dp)
     q = primal(q_dq)
     conjA = primal(conjA_dconjA)
