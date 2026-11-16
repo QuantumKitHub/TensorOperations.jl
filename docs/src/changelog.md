@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.3...HEAD)
+## [Unreleased](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.4...HEAD)
 
 ### Added
 
@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Performance
+
+## [5.8.4](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.3...v5.8.4) - 2026-11-16
+
+### Fixed
+
+- Reverse-mode differentiation with ChainRules, Enzyme and Mooncake gives correct gradients when temporaries are allocated with `ManualAllocator`: temporaries needed in the reverse pass are no longer freed, and their shadows are zero-initialized ([#327](https://github.com/QuantumKitHub/TensorOperations.jl/pull/327)).
 
 ## [5.8.3](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.2...v5.8.3) - 2026-11-02
 
