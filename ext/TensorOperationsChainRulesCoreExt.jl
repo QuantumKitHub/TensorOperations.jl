@@ -17,10 +17,8 @@ using LinearAlgebra
 @non_differentiable TensorOperations.tensorstructure(args...)
 @non_differentiable TensorOperations.tensoradd_structure(args...)
 @non_differentiable TensorOperations.tensoradd_type(args...)
-@non_differentiable TensorOperations.tensoralloc_add(args...)
 @non_differentiable TensorOperations.tensorcontract_structure(args...)
 @non_differentiable TensorOperations.tensorcontract_type(args...)
-@non_differentiable TensorOperations.tensoralloc_contract(args...)
 @non_differentiable TensorOperations.promote_contract(args...)
 @non_differentiable TensorOperations.promote_add(args...)
 @non_differentiable TensorOperations.contract_indices(args...)
@@ -36,13 +34,10 @@ function ChainRulesCore.rrule(::typeof(TensorOperations.tensorfree!), C, allocat
     return nothing, tensorfree!_pullback
 end
 function ChainRulesCore.rrule(
-        ::typeof(TensorOperations.tensoralloc), ttype, structure,
-        istemp, allocator = DefaultAllocator()
+        ::typeof(TensorOperations.tensoralloc), ttype, structure, istemp, args...
     )
-    output = TensorOperations.tensoralloc(ttype, structure, Val(false), allocator)
-    function tensoralloc_pullback(Δargs...)
-        return (NoTangent(), NoTangent(), NoTangent(), NoTangent(), NoTangent())
-    end
+    output = TensorOperations.tensoralloc(ttype, structure, Val(false), args...)
+    tensoralloc_pullback(Δ) = ntuple(Returns(NoTangent()), 4 + length(args))
     return output, tensoralloc_pullback
 end
 

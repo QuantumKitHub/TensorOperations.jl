@@ -1,5 +1,5 @@
 using TensorOperations
-using TensorOperations: StridedBLAS, StridedNative, tensortrace!, Zero
+using TensorOperations: StridedBLAS, StridedNative, tensortrace!, tensoralloc, Zero
 using Test
 using Mooncake
 using Random
@@ -101,4 +101,39 @@ end
     C = Array{T, 0}(undef, ())
     fill!(C, rand(T))
     Mooncake.TestUtils.test_rule(rng, tensorscalar, C; atol, rtol, is_primitive)
+end
+
+# the intermediate `A * B` of the first block is needed in the pullback after the second block
+# has reused (`BufferAllocator`) or the first block has freed (`ManualAllocator`) its storage
+function mooncake_two_tensor_blocks(A, B, D, allocator)
+    @tensor allocator = allocator C[a, b] := A[a, c] * B[c, d] * D[d, b]
+    @tensor allocator = allocator E[a, b] := D[a, c] * B[c, d] * C[d, b]
+    return sum(abs2, E)
+end
+
+@testset "temporaries of $(nameof(typeof(allocator)))" for allocator in
+    (TensorOperations.ManualAllocator(), TensorOperations.BufferAllocator())
+    A, B, D = randn(rng, 4, 4), randn(rng, 4, 4), randn(rng, 4, 4)
+    function gradient(allocator)
+        f = (A, B, D) -> mooncake_two_tensor_blocks(A, B, D, allocator)
+        cache = Mooncake.prepare_gradient_cache(f, A, B, D)
+        val, (_, dA, dB, dD) = Mooncake.value_and_gradient!!(cache, f, A, B, D)
+        return val, copy(dA), copy(dB), copy(dD)
+    end
+    ref = gradient(TensorOperations.DefaultAllocator())
+    res = gradient(allocator)
+    @test all(res .≈ ref)
+    # repeated calls reuse the prepared rules without leaking or reusing freed temporaries
+    @test all(gradient(allocator) .≈ ref)
+end
+
+@testset "No double free for ManualAllocator" begin
+    allocator = TensorOperations.ManualAllocator()
+    C_dC, pb = Mooncake.rrule!!(
+        Mooncake.zero_fcodual(tensoralloc), Mooncake.zero_fcodual(Matrix{Float64}),
+        Mooncake.zero_fcodual((16, 16)), Mooncake.zero_fcodual(Val(true)), Mooncake.zero_fcodual(allocator)
+    )
+    @test Mooncake.primal(C_dC) isa TensorOperations.PtrArrays.PtrArray{Float64, 2}
+    @test pb(Mooncake.NoRData()) == ntuple(Returns(Mooncake.NoRData()), 5)
+    @test pb(Mooncake.NoRData()) == ntuple(Returns(Mooncake.NoRData()), 5)
 end

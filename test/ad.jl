@@ -2,7 +2,7 @@ using TensorOperations
 using TensorOperations: StridedBLAS, StridedNative
 using Test
 using ChainRulesTestUtils
-using ChainRulesCore: NoTangent
+using ChainRulesCore: ChainRulesCore, NoTangent
 using VectorInterface: Zero
 
 ChainRulesTestUtils.test_method_tables()
