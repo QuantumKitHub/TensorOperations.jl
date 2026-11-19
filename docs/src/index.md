@@ -60,6 +60,10 @@ The TensorOperations.jl package is centered around the following features:
     [CUDA.jl and cuTENSOR.jl](https://github.com/JuliaGPU/CUDA.jl), by relying on (and thus
     providing a high level interface into) NVidia's
     [cuTENSOR](https://developer.nvidia.com/cutensor) library.
+  - Support for `ROCArray` objects if used together with
+    [AMDGPU.jl and hipTENSOR](https://github.com/JuliaGPU/AMDGPU.jl), by relying on (and thus
+    providing a high level interface into) AMD's
+    [hipTENSOR](https://rocm.docs.amd.com/projects/hipTensor/en/latest/index.html) library.
   - Fall-back support for `AbstractArray` instances which are not strided, by using a
     general implementation using only constructions from Julia's `Base` and `LinearAlgebra`
     modules (`reshape`, `permutedims`, `mul!`, etc.) and some indexing in the case of

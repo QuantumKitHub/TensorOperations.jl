@@ -97,6 +97,7 @@ struct TBLISBackend <: AbstractBackend end
 #-----------------
 """
     cuTENSORBackend(; workspace = :default)
+
 Backend for tensor operations that is based on the NVIDIA cuTENSOR library. `workspace` is
 cuTENSOR's workspace preference for contractions: `:min`, `:default` or `:max`.
 """
@@ -113,3 +114,13 @@ cuTENSOR's workspace preference for contractions: `:min`, `:default` or `:max`.
         return new(workspace)
     end
 end
+
+
+# hipTENSOR backend
+#-----------------
+"""
+    hipTENSORBackend()
+
+Backend for tensor operations that is based on the AMD hipTENSOR library.
+"""
+struct hipTENSORBackend <: AbstractBackend end

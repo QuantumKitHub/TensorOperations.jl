@@ -471,16 +471,17 @@ simple wrapper over the cuTENSOR library of NVidia, and will only be loaded when
 `cuTENSOR.jl` package is loaded. The `@tensor` macro will then automatically work for
 operations between GPU arrays.
 
-Mixed operations between host arrays (e.g. `Array`) and device arrays (e.g. `CuArray`) will
-fail. However, if one wants to harness the computing power of the GPU to perform all tensor
-operations, there is a dedicated macro `@cutensor`. This will transfer all host arrays to
-the GPU before performing the requested operations. If the output is an existing host array,
-the result will be copied back. If a new result array is created (i.e. using `:=`), it will
-remain on the GPU device and it is up to the user to transfer it back. Arrays are transfered
-to the GPU just before they are first used, and in a complicated tensor expression, this
-might have the benefit that transer of the later arrays overlaps with computation of earlier
-operations.
+Mixed operations between host arrays (e.g. `Array`) and device arrays (e.g. `CuArray` or `ROCArray`)
+will fail. However, if one wants to harness the computing power of the GPU to perform all tensor
+operations, there is a dedicated macro `@cutensor` for CUDA devices, or `@hiptensor` for AMD.
+This will transfer all host arrays to the GPU before performing the requested operations.
+If the output is an existing host array, the result will be copied back.
+If a new result array is created (i.e. using `:=`), it will remain on the GPU device and it
+is up to the user to transfer it back. Arrays are transfered to the GPU just before they are
+first used, and in a complicated tensor expression, this might have the benefit that transer
+of the later arrays overlaps with computation of earlier operations.
 
 ```@docs
 @cutensor
+@hiptensor
 ```

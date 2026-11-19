@@ -16,7 +16,7 @@ using Base.Meta: isexpr
 #---------
 # export macro API
 export @tensor, @tensoropt, @tensoropt_verbose, @optimalcontractiontree, @notensor, @ncon
-export @cutensor, @butensor
+export @cutensor, @hiptensor, @butensor
 
 # export function based API
 export ncon
