@@ -2,7 +2,19 @@
 #-----------------------------------------
 backendlist = (BaseCopy(), BaseView(), StridedNative(), StridedBLAS())
 
+@testset "empty left and right indices on input" begin
+    r = fill(5.0)
+    @tensor s[] := 2 * r[;]
+    @test s == 2 * r
+end
+
 @testset "with backend $b" for b in backendlist
+    @testset "empty left and right indices" begin
+        A = [1.0 2.0; 3.0 4.0]
+        @tensor backend = b r[;] := A[1; 1]
+        @test r == fill(tr(A))
+    end
+
     @testset "tensorcontract 1" begin
         A = randn(Float64, (3, 5, 4, 6))
         p = (4, 1, 3, 2)

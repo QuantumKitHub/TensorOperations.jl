@@ -4,6 +4,8 @@ function replaceindices((@nospecialize f), ex)
         return Expr(:block, map(x -> replaceindices(f, x), ex.args)...)
     elseif isexpr(ex, :macrocall) && ex.args[1] == Symbol("@notensor")
         return ex
+    elseif isemptysplittensor(ex)
+        return ex
     elseif istensor(ex)
         if ex.head == :ref || ex.head == :typed_hcat
             if length(ex.args) == 1

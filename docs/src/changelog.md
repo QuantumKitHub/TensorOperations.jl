@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In tensor index notation, `r[;]` now denotes a tensor with no indices, just like `r[]` ([#325](https://github.com/QuantumKitHub/TensorOperations.jl/issues/325)).
+
 ### Performance
 
 ## [5.8.4](https://github.com/QuantumKitHub/TensorOperations.jl/compare/v5.8.3...v5.8.4) - 2026-11-16

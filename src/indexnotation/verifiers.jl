@@ -18,6 +18,9 @@ function isindex(ex)
     end
 end
 
+# Julia parses A[;] as a typed concatenation with dimension 1 and no elements.
+isemptysplittensor(ex) = isexpr(ex, :typed_ncat, 2) && ex.args[2] === 1
+
 # test for a simple tensor object indexed by valid indices
 """
     istensor(ex)
@@ -42,6 +45,8 @@ function istensor(ex::Expr)
         else
             return all(isindex, ex.args[2:end])
         end
+    elseif isemptysplittensor(ex)
+        return true
     elseif ex.head == :typed_vcat && length(ex.args) == 3
         if isexpr(ex.args[2], [:row, :tuple])
             all(isindex, ex.args[2].args) || return false
@@ -120,7 +125,7 @@ function isscalarexpr(ex)
         return true
     elseif isexpr(ex, :call) && ex.args[1] == :tensorscalar
         return istensorexpr(ex.args[2])
-    elseif isexpr(ex, (:ref, :typed_vcat, :typed_hcat))
+    elseif isexpr(ex, (:ref, :typed_vcat, :typed_hcat)) || isemptysplittensor(ex)
         return false
     elseif isexpr(ex, :call) # || isdefinition(ex) || isassignment(ex)
         return all(isscalarexpr, ex.args[2:end])
