@@ -57,6 +57,11 @@
         @test !isindex(:("x"))
         @test !isindex(:(5.1))
 
+        @test istensor(:(a[;]))
+        @test !isscalarexpr(:(a[;]))
+        @test decomposetensor(:(a[;])) == decomposetensor(:(a[]))
+        @test !istensor(:(a[;;]))
+        @test !istensor(:(a[i;; j]))
         @test istensor(:(a[1, 2, 3]))
         @test decomposetensor(:(a[1, 2, 3])) == (:a, Any[1, 2, 3], Any[])
         @test istensor(:(a[5][a b c]))

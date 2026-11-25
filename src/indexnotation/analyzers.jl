@@ -10,6 +10,8 @@ function decomposetensor(ex)
         else
             return ex.args[1], ex.args[2:end], Any[]
         end
+    elseif isemptysplittensor(ex)
+        return ex.args[1], Any[], Any[]
     elseif isexpr(ex, :typed_vcat)
         if isexpr(ex.args[2], [:row, :tuple])
             leftind = ex.args[2].args
